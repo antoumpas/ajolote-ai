@@ -41,14 +41,9 @@ func (t *ClaudeTranslator) renderCLAUDEmd(cfg *config.Config) string {
 
 	sb.WriteString("## Agent Rules\n\n")
 	sb.WriteString(rulesMarkdown(cfg))
-
-	if len(cfg.Skills) > 0 {
-		sb.WriteString("## Skills\n\n")
-		for _, s := range cfg.Skills {
-			sb.WriteString(fmt.Sprintf("- `%s`\n", s))
-		}
-		sb.WriteString("\n")
-	}
+	sb.WriteString(fileListMarkdown("Skills", cfg.Skills))
+	sb.WriteString(fileListMarkdown("Personas", cfg.Personas))
+	sb.WriteString(fileListMarkdown("Context", cfg.Context))
 
 	return sb.String()
 }

@@ -29,5 +29,8 @@ func (t *WindsurfTranslator) renderRules(cfg *config.Config) string {
 	sb.WriteString(fmt.Sprintf("**Stack:** %s | **Language:** %s | **Test runner:** %s\n\n", cfg.Project.Stack, cfg.Project.Language, cfg.Project.TestRunner))
 	sb.WriteString("---\n\n")
 	sb.WriteString(rulesMarkdown(cfg))
+	sb.WriteString(fileListMarkdown("Skills", cfg.Skills))
+	sb.WriteString(fileListMarkdown("Personas", cfg.Personas))
+	sb.WriteString(fileListMarkdown("Context", cfg.Context))
 	return sb.String()
 }

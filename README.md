@@ -94,10 +94,23 @@ ajolote status
     ]
   },
 
-  // Skill files to reference — markdown files your team maintains in .agents/skills/
+  // Skill files — reusable task instructions in .agents/skills/
   "skills": [
     ".agents/skills/git.md",
     ".agents/skills/testing.md"
+  ],
+
+  // Personas — role-based behaviours agents should adopt for specific tasks
+  "personas": [
+    ".agents/personas/reviewer.md",
+    ".agents/personas/architect.md"
+  ],
+
+  // Context — background knowledge about the project (keep these up to date)
+  "context": [
+    ".agents/context/architecture.md",
+    ".agents/context/data-model.md",
+    ".agents/context/glossary.md"
   ]
 }
 ```
@@ -121,7 +134,9 @@ ajolote status
 | `rules.testing` | Testing conventions |
 | `rules.security` | Security constraints |
 | `rules.commits` | Commit message conventions |
-| `skills` | Paths to markdown skill files included as context |
+| `skills` | Paths to skill files — reusable task instructions |
+| `personas` | Paths to persona files — role-based agent behaviours |
+| `context` | Paths to context files — background knowledge about the project |
 
 ---
 
@@ -312,27 +327,33 @@ gitignore: false
 
 ---
 
-## Skill files
+## The .agents/ directory
 
-Skill files are markdown documents your team writes and maintains in `.agents/skills/`. They describe conventions, workflows, and context that agents should follow. Reference them in `config.json` under `skills` and they will appear in generated tool configs.
-
-`ajolote init` seeds two starter files:
-
-- **`.agents/skills/git.md`** — branch naming, commit message format, PR conventions
-- **`.agents/skills/testing.md`** — test structure, how to run tests, what to test
-
-Add your own:
+All files in `.agents/` are committed to git and shared across the team. Agents receive these as context when developers run `ajolote use <tool>`.
 
 ```
-.agents/skills/
-  git.md
-  testing.md
-  api-design.md       ← REST / GraphQL conventions
-  migrations.md       ← DB migration workflow
-  debugging.md        ← debugging protocol
+.agents/
+  config.json              ← canonical config (the only file ajolote reads)
+  skills/
+    git.md                 ← Git workflows: branch naming, PR hygiene
+    testing.md             ← How to write and run tests
+    api-design.md          ← REST / GraphQL conventions (add your own)
+    migrations.md          ← DB migration workflow (add your own)
+    debugging.md           ← Step-by-step debugging protocol (add your own)
+  personas/
+    reviewer.md            ← How to behave during code review
+    architect.md           ← How to approach design and architecture tasks
+  context/
+    architecture.md        ← High-level system design (keep up to date!)
+    data-model.md          ← Core entities and relationships
+    glossary.md            ← Domain terms and abbreviations
 ```
 
-Then reference them in `config.json`:
+`ajolote init` seeds all three directories with starter templates. Fill them in with your project's real information and commit — that's where the value is.
+
+### Skills
+
+Reusable task instructions. Reference them under `"skills"` in `config.json`:
 
 ```json
 "skills": [
@@ -341,6 +362,36 @@ Then reference them in `config.json`:
   ".agents/skills/api-design.md"
 ]
 ```
+
+### Personas
+
+Role-based behaviours agents adopt for specific task types. Reference under `"personas"`:
+
+```json
+"personas": [
+  ".agents/personas/reviewer.md",
+  ".agents/personas/architect.md"
+]
+```
+
+Example usage — a developer tells their AI tool:
+> "Act as the architect persona and review this proposed change to the auth service."
+
+The agent reads `.agents/personas/architect.md` and applies its mindset and principles.
+
+### Context
+
+Background knowledge about the project — architecture, data model, glossary. Reference under `"context"`:
+
+```json
+"context": [
+  ".agents/context/architecture.md",
+  ".agents/context/data-model.md",
+  ".agents/context/glossary.md"
+]
+```
+
+Keep these files accurate. They are the most important inputs for agents working on non-trivial tasks.
 
 ---
 

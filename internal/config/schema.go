@@ -2,10 +2,12 @@ package config
 
 // Config is the canonical ajolote configuration stored in .agents/config.json.
 type Config struct {
-	Project Project  `json:"project"`
-	MCP     MCP      `json:"mcp"`
-	Rules   Rules    `json:"rules"`
-	Skills  []string `json:"skills"`
+	Project  Project  `json:"project"`
+	MCP      MCP      `json:"mcp"`
+	Rules    Rules    `json:"rules"`
+	Skills   []string `json:"skills"`
+	Personas []string `json:"personas"`
+	Context  []string `json:"context"`
 }
 
 type Project struct {

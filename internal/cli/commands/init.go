@@ -45,7 +45,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	printOK(".agents/config.json")
 
-	// Seed skill files (never overwrites existing files)
+	// Seed skill files
 	skillsDir := filepath.Join(projectRoot, ".agents", "skills")
 	if err := os.MkdirAll(skillsDir, 0o755); err != nil {
 		return err
@@ -54,11 +54,42 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	printOK(".agents/skills/git.md")
-
 	if err := seedFile(filepath.Join(skillsDir, "testing.md"), config.TestingSkillContent); err != nil {
 		return err
 	}
 	printOK(".agents/skills/testing.md")
+
+	// Seed persona files
+	personasDir := filepath.Join(projectRoot, ".agents", "personas")
+	if err := os.MkdirAll(personasDir, 0o755); err != nil {
+		return err
+	}
+	if err := seedFile(filepath.Join(personasDir, "reviewer.md"), config.ReviewerPersonaContent); err != nil {
+		return err
+	}
+	printOK(".agents/personas/reviewer.md")
+	if err := seedFile(filepath.Join(personasDir, "architect.md"), config.ArchitectPersonaContent); err != nil {
+		return err
+	}
+	printOK(".agents/personas/architect.md")
+
+	// Seed context files
+	contextDir := filepath.Join(projectRoot, ".agents", "context")
+	if err := os.MkdirAll(contextDir, 0o755); err != nil {
+		return err
+	}
+	if err := seedFile(filepath.Join(contextDir, "architecture.md"), config.ArchitectureContextContent); err != nil {
+		return err
+	}
+	printOK(".agents/context/architecture.md")
+	if err := seedFile(filepath.Join(contextDir, "data-model.md"), config.DataModelContextContent); err != nil {
+		return err
+	}
+	printOK(".agents/context/data-model.md")
+	if err := seedFile(filepath.Join(contextDir, "glossary.md"), config.GlossaryContextContent); err != nil {
+		return err
+	}
+	printOK(".agents/context/glossary.md")
 
 	// Gitignore all tool output files upfront
 	if err := ignoreAllTools(projectRoot); err != nil {

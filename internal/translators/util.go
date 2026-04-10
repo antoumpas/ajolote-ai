@@ -46,3 +46,17 @@ func rulesMarkdown(cfg *config.Config) string {
 
 	return sb.String()
 }
+
+// fileListMarkdown renders a list of file paths as markdown bullets.
+func fileListMarkdown(heading string, paths []string) string {
+	if len(paths) == 0 {
+		return ""
+	}
+	var sb strings.Builder
+	sb.WriteString("## " + heading + "\n\n")
+	for _, p := range paths {
+		sb.WriteString(fmt.Sprintf("- `%s`\n", p))
+	}
+	sb.WriteString("\n")
+	return sb.String()
+}
