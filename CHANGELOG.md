@@ -1,3 +1,9 @@
+## v0.4.0 — 2026-04-10
+
+- Add regression tests for Import-without-MCP-file bug (9c6c385)
+- fix: import commands even when MCP config file is absent (071364a)
+- chore: update CHANGELOG for v0.3.0 (a12c61f)
+
 ## v0.3.0 — 2026-04-10
 
 - fix: run CHANGELOG update after GoReleaser, not before (fbf9616)
