@@ -4,7 +4,7 @@
 
 set -e
 
-REPO="ajolote-ai/ajolote"
+REPO="antoumpas/ajolote-ai"
 BINARY="ajolote"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
