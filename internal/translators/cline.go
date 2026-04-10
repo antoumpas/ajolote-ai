@@ -3,6 +3,7 @@ package translators
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/ajolote-ai/ajolote/internal/config"
@@ -24,6 +25,17 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 		return fmt.Errorf("cline mcp: %w", err)
 	}
 	return nil
+}
+
+func (t *ClineTranslator) Import(projectRoot string) (*ImportResult, error) {
+	servers, err := parseMCPFile(filepath.Join(projectRoot, ".roo", "mcp.json"))
+	if err != nil {
+		return nil, err
+	}
+	if servers == nil {
+		return nil, nil
+	}
+	return &ImportResult{NewMCPServers: servers}, nil
 }
 
 func (t *ClineTranslator) renderRules(cfg *config.Config) string {

@@ -30,6 +30,7 @@ func Execute() {
 func init() {
 	rootCmd.AddCommand(commands.InitCmd())
 	rootCmd.AddCommand(commands.UseCmd())
+	rootCmd.AddCommand(commands.SyncCmd())
 	rootCmd.AddCommand(commands.IgnoreCmd())
 	rootCmd.AddCommand(commands.StatusCmd())
 }

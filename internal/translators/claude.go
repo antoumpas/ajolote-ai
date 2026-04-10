@@ -3,6 +3,7 @@ package translators
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/ajolote-ai/ajolote/internal/config"
@@ -24,6 +25,17 @@ func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) erro
 		return fmt.Errorf("claude settings: %w", err)
 	}
 	return nil
+}
+
+func (t *ClaudeTranslator) Import(projectRoot string) (*ImportResult, error) {
+	servers, err := parseMCPFile(filepath.Join(projectRoot, ".claude", "settings.json"))
+	if err != nil {
+		return nil, err
+	}
+	if servers == nil {
+		return nil, nil // file doesn't exist
+	}
+	return &ImportResult{NewMCPServers: servers}, nil
 }
 
 func (t *ClaudeTranslator) renderCLAUDEmd(cfg *config.Config) string {

@@ -15,6 +15,10 @@ func (t *AiderTranslator) OutputFiles() []string {
 	return []string{".aider.conf.yml"}
 }
 
+func (t *AiderTranslator) Import(projectRoot string) (*ImportResult, error) {
+	return &ImportResult{}, nil // no structured config to import
+}
+
 func (t *AiderTranslator) Generate(cfg *config.Config, projectRoot string) error {
 	if err := writeFile(projectRoot, ".aider.conf.yml", t.renderConf(cfg)); err != nil {
 		return fmt.Errorf("aider: %w", err)

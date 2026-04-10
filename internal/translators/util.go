@@ -1,6 +1,7 @@
 package translators
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,6 +46,26 @@ func rulesMarkdown(cfg *config.Config) string {
 	}
 
 	return sb.String()
+}
+
+// parseMCPFile reads a {"mcpServers": {...}} JSON file and returns the servers map.
+// Returns nil map (no error) when the file does not exist.
+func parseMCPFile(path string) (map[string]config.MCPServer, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	var wrapper struct {
+		MCPServers map[string]config.MCPServer `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(data, &wrapper); err != nil {
+		return nil, fmt.Errorf("parsing %s: %w", path, err)
+	}
+	return wrapper.MCPServers, nil
 }
 
 // fileListMarkdown renders a list of file paths as markdown bullets.

@@ -15,6 +15,10 @@ func (t *CopilotTranslator) OutputFiles() []string {
 	return []string{".github/copilot-instructions.md"}
 }
 
+func (t *CopilotTranslator) Import(projectRoot string) (*ImportResult, error) {
+	return &ImportResult{}, nil // no structured config to import
+}
+
 func (t *CopilotTranslator) Generate(cfg *config.Config, projectRoot string) error {
 	if err := writeFile(projectRoot, ".github/copilot-instructions.md", t.renderInstructions(cfg)); err != nil {
 		return fmt.Errorf("copilot: %w", err)

@@ -3,6 +3,7 @@ package translators
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/ajolote-ai/ajolote/internal/config"
@@ -24,6 +25,17 @@ func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) erro
 		return fmt.Errorf("cursor mcp: %w", err)
 	}
 	return nil
+}
+
+func (t *CursorTranslator) Import(projectRoot string) (*ImportResult, error) {
+	servers, err := parseMCPFile(filepath.Join(projectRoot, ".cursor", "mcp.json"))
+	if err != nil {
+		return nil, err
+	}
+	if servers == nil {
+		return nil, nil
+	}
+	return &ImportResult{NewMCPServers: servers}, nil
 }
 
 func (t *CursorTranslator) renderRules(cfg *config.Config) string {

@@ -19,9 +19,34 @@ ajolote init
 # Developer — after cloning, generate config for your tool of choice
 ajolote use claude   # or cursor, windsurf, copilot, cline, aider
 
+# Two-way sync — pull in changes from your tool, push updated config back out
+ajolote sync           # syncs all tools whose files are present
+ajolote sync cursor    # syncs only cursor
+
 # Check what's generated locally
 ajolote status
 ```
+
+## How sync works
+
+`ajolote sync` runs in two directions:
+
+**↑ Import** — reads MCP server definitions from the tool's own config files and merges any new ones into `.agents/config.json`. This catches servers a developer added directly in their tool's UI.
+
+**↓ Export** — regenerates the tool's files from the (now updated) canonical config, so rules and context are always current.
+
+| Tool | Importable (↑) | Exported (↓) |
+|---|---|---|
+| claude | `.claude/settings.json` | `CLAUDE.md`, `.claude/settings.json` |
+| cursor | `.cursor/mcp.json` | `.cursor/rules/agents.mdc`, `.cursor/mcp.json` |
+| cline | `.roo/mcp.json` | `.clinerules`, `.roo/mcp.json` |
+| windsurf | — | `.windsurf/rules/agents.md` |
+| copilot | — | `.github/copilot-instructions.md` |
+| aider | — | `.aider.conf.yml` |
+
+Rules always flow **config → tool** only. `.agents/config.json` is the authority for rules; the tool files are never trusted for rules.
+
+---
 
 ## How it works
 

@@ -15,6 +15,10 @@ func (t *WindsurfTranslator) OutputFiles() []string {
 	return []string{".windsurf/rules/agents.md"}
 }
 
+func (t *WindsurfTranslator) Import(projectRoot string) (*ImportResult, error) {
+	return &ImportResult{}, nil // no structured config to import
+}
+
 func (t *WindsurfTranslator) Generate(cfg *config.Config, projectRoot string) error {
 	if err := writeFile(projectRoot, ".windsurf/rules/agents.md", t.renderRules(cfg)); err != nil {
 		return fmt.Errorf("windsurf: %w", err)

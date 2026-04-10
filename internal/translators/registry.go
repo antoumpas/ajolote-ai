@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-// All returns all registered translators in a stable order.
-func All() []Translator {
-	return []Translator{
+// All returns all registered syncers in a stable order.
+func All() []Syncer {
+	return []Syncer{
 		&ClaudeTranslator{},
 		&CursorTranslator{},
 		&WindsurfTranslator{},
@@ -17,8 +17,8 @@ func All() []Translator {
 	}
 }
 
-// Get returns the translator for the given tool name, or an error if unknown.
-func Get(name string) (Translator, error) {
+// Get returns the syncer for the given tool name, or an error if unknown.
+func Get(name string) (Syncer, error) {
 	for _, t := range All() {
 		if t.Name() == name {
 			return t, nil
