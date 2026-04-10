@@ -19,6 +19,18 @@ func testConfig() *config.Config {
 	return cfg
 }
 
+// seedCommand writes a command file into .agents/commands/ under dir.
+func seedCommand(t *testing.T, dir, name, content string) {
+	t.Helper()
+	cmdDir := filepath.Join(dir, ".agents", "commands")
+	if err := os.MkdirAll(cmdDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cmdDir, name+".md"), []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestAllTranslatorsGenerate(t *testing.T) {
 	for _, tr := range translators.All() {
 		tr := tr
@@ -115,5 +127,263 @@ func TestNames(t *testing.T) {
 		if !strings.Contains(names, expected) {
 			t.Errorf("Names() missing %q, got: %s", expected, names)
 		}
+	}
+}
+
+// --- Commands translation tests ---
+
+func TestCommandsGeneratedForClaude(t *testing.T) {
+	dir := t.TempDir()
+	seedCommand(t, dir, "deploy", "---\ndescription: Deploy to staging\n---\n\nRun deploy.sh\n")
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".claude/commands/deploy.md"))
+	if err != nil {
+		t.Fatalf(".claude/commands/deploy.md not generated: %v", err)
+	}
+	if !strings.Contains(string(data), "Run deploy.sh") {
+		t.Error(".claude/commands/deploy.md missing command content")
+	}
+}
+
+func TestCommandsGeneratedForCursor(t *testing.T) {
+	dir := t.TempDir()
+	seedCommand(t, dir, "deploy", "---\ndescription: Deploy to staging\n---\n\nRun deploy.sh\n")
+
+	tr := &translators.CursorTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/deploy.mdc"))
+	if err != nil {
+		t.Fatalf(".cursor/rules/deploy.mdc not generated: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "Deploy to staging") {
+		t.Error(".cursor/rules/deploy.mdc missing description")
+	}
+	if !strings.Contains(content, "Run deploy.sh") {
+		t.Error(".cursor/rules/deploy.mdc missing command content")
+	}
+	if !strings.Contains(content, "alwaysApply: false") {
+		t.Error(".cursor/rules/deploy.mdc missing alwaysApply frontmatter")
+	}
+}
+
+func TestCommandsGeneratedForCline(t *testing.T) {
+	dir := t.TempDir()
+	seedCommand(t, dir, "deploy", "---\ndescription: Deploy to staging\n---\n\nRun deploy.sh\n")
+
+	tr := &translators.ClineTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".roo/rules/deploy.md"))
+	if err != nil {
+		t.Fatalf(".roo/rules/deploy.md not generated: %v", err)
+	}
+	if !strings.Contains(string(data), "Run deploy.sh") {
+		t.Error(".roo/rules/deploy.md missing command content")
+	}
+}
+
+func TestCommandsGeneratedForWindsurf(t *testing.T) {
+	dir := t.TempDir()
+	seedCommand(t, dir, "deploy", "---\ndescription: Deploy to staging\n---\n\nRun deploy.sh\n")
+
+	tr := &translators.WindsurfTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".windsurf/workflows/deploy.yaml"))
+	if err != nil {
+		t.Fatalf(".windsurf/workflows/deploy.yaml not generated: %v", err)
+	}
+	if !strings.Contains(string(data), "Run deploy.sh") {
+		t.Error(".windsurf/workflows/deploy.yaml missing command content")
+	}
+}
+
+// --- Import / two-way sync tests ---
+
+func TestClaudeImportMCPServers(t *testing.T) {
+	dir := t.TempDir()
+	settingsJSON := `{"mcpServers":{"github":{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}}}`
+	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(filepath.Join(dir, ".claude/settings.json"), []byte(settingsJSON), 0o644)
+
+	tr := &translators.ClaudeTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil ImportResult")
+	}
+	if _, ok := result.NewMCPServers["github"]; !ok {
+		t.Error("expected github MCP server in ImportResult")
+	}
+}
+
+func TestClaudeImportCommands(t *testing.T) {
+	dir := t.TempDir()
+
+	// Simulate .claude/settings.json existing (required for Import to return non-nil)
+	os.MkdirAll(filepath.Join(dir, ".claude", "commands"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".claude/settings.json"), []byte(`{"mcpServers":{}}`), 0o644)
+
+	// A user-created command
+	os.WriteFile(filepath.Join(dir, ".claude/commands/deploy.md"),
+		[]byte("---\ndescription: Deploy\n---\n\nRun deploy.sh\n"), 0o644)
+	// ajolote-managed file — must be skipped
+	os.WriteFile(filepath.Join(dir, ".claude/commands/ajolote-sync.md"), []byte("sync content"), 0o644)
+
+	tr := &translators.ClaudeTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil ImportResult")
+	}
+	if len(result.NewCommands) != 1 {
+		t.Fatalf("expected 1 new command, got %d", len(result.NewCommands))
+	}
+	if result.NewCommands[0].Name != "deploy" {
+		t.Errorf("expected command name 'deploy', got %q", result.NewCommands[0].Name)
+	}
+	if result.NewCommands[0].Description != "Deploy" {
+		t.Errorf("expected description 'Deploy', got %q", result.NewCommands[0].Description)
+	}
+}
+
+func TestClaudeImportSkipsExistingCommands(t *testing.T) {
+	dir := t.TempDir()
+
+	// deploy.md already in .agents/commands/
+	seedCommand(t, dir, "deploy", "existing content")
+
+	os.MkdirAll(filepath.Join(dir, ".claude", "commands"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".claude/settings.json"), []byte(`{"mcpServers":{}}`), 0o644)
+	os.WriteFile(filepath.Join(dir, ".claude/commands/deploy.md"), []byte("tool version"), 0o644)
+
+	tr := &translators.ClaudeTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.NewCommands) != 0 {
+		t.Errorf("expected no new commands (deploy already in .agents/commands/), got %d", len(result.NewCommands))
+	}
+}
+
+func TestCursorImportCommands(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".cursor", "rules"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".cursor/mcp.json"), []byte(`{"mcpServers":{}}`), 0o644)
+
+	// User-created MDC command
+	os.WriteFile(filepath.Join(dir, ".cursor/rules/deploy.mdc"),
+		[]byte("---\ndescription: Deploy\nalwaysApply: false\n---\n\nRun deploy.sh\n"), 0o644)
+	// ajolote-managed files — must be skipped
+	os.WriteFile(filepath.Join(dir, ".cursor/rules/agents.mdc"), []byte("rules"), 0o644)
+	os.WriteFile(filepath.Join(dir, ".cursor/rules/ajolote-sync.mdc"), []byte("sync"), 0o644)
+
+	tr := &translators.CursorTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.NewCommands) != 1 {
+		t.Fatalf("expected 1 new command, got %d", len(result.NewCommands))
+	}
+	if result.NewCommands[0].Name != "deploy" {
+		t.Errorf("expected 'deploy', got %q", result.NewCommands[0].Name)
+	}
+	if !strings.Contains(result.NewCommands[0].Content, "Run deploy.sh") {
+		t.Error("cursor command import should strip MDC frontmatter and preserve body")
+	}
+}
+
+func TestClineImportCommands(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".roo", "rules"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".roo/mcp.json"), []byte(`{"mcpServers":{}}`), 0o644)
+
+	// Cline command format: "# name\n\ncontent"
+	os.WriteFile(filepath.Join(dir, ".roo/rules/deploy.md"),
+		[]byte("# deploy\n\nRun deploy.sh\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, ".roo/rules/ajolote-sync.md"), []byte("sync"), 0o644)
+
+	tr := &translators.ClineTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.NewCommands) != 1 {
+		t.Fatalf("expected 1 new command, got %d", len(result.NewCommands))
+	}
+	if result.NewCommands[0].Name != "deploy" {
+		t.Errorf("expected 'deploy', got %q", result.NewCommands[0].Name)
+	}
+	if !strings.Contains(result.NewCommands[0].Content, "Run deploy.sh") {
+		t.Error("cline command import should strip '# name' header and preserve body")
+	}
+}
+
+func TestImportNoFilesReturnsNil(t *testing.T) {
+	// Tools with no files on disk should return nil (not empty result)
+	for _, tr := range []translators.Syncer{
+		&translators.ClaudeTranslator{},
+		&translators.CursorTranslator{},
+		&translators.ClineTranslator{},
+	} {
+		dir := t.TempDir()
+		result, err := tr.Import(dir)
+		if err != nil {
+			t.Errorf("%s Import with no files: unexpected error: %v", tr.Name(), err)
+		}
+		if result != nil {
+			t.Errorf("%s Import with no files: expected nil result, got %+v", tr.Name(), result)
+		}
+	}
+}
+
+func TestImportIdempotent(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".claude", "commands"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".claude/settings.json"), []byte(`{"mcpServers":{}}`), 0o644)
+	os.WriteFile(filepath.Join(dir, ".claude/commands/deploy.md"), []byte("Run deploy.sh\n"), 0o644)
+
+	tr := &translators.ClaudeTranslator{}
+
+	// First import — deploy is new
+	result1, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result1.NewCommands) != 1 {
+		t.Fatalf("first import: expected 1 new command, got %d", len(result1.NewCommands))
+	}
+
+	// Simulate writing it to .agents/commands/
+	seedCommand(t, dir, "deploy", "Run deploy.sh\n")
+
+	// Second import — deploy is already in .agents/commands/, should be skipped
+	result2, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result2.NewCommands) != 0 {
+		t.Errorf("second import: expected 0 new commands (idempotent), got %d", len(result2.NewCommands))
 	}
 }
