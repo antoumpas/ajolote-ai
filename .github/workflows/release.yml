@@ -24,6 +24,17 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: "~> v2"
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Required only if you use the Homebrew tap in .goreleaser.yml.
+          # Create a fine-grained PAT with write access to the homebrew-tap repo
+          # and add it as a secret named HOMEBREW_TAP_TOKEN.
+          # HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+
       - name: Update CHANGELOG.md
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
@@ -31,9 +42,9 @@ jobs:
           PREV_TAG=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)" 2>/dev/null || echo "")
 
           if [ -n "$PREV_TAG" ]; then
-            LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
+            LOG=$(git log "${PREV_TAG}..${TAG}" --pretty=format:"- %s (%h)" --no-merges)
           else
-            LOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+            LOG=$(git log "${TAG}" --pretty=format:"- %s (%h)" --no-merges)
           fi
 
           ENTRY="## ${TAG} — ${DATE}\n\n${LOG}\n"
@@ -49,14 +60,3 @@ jobs:
           git add CHANGELOG.md
           git commit -m "chore: update CHANGELOG for ${TAG}"
           git push origin HEAD:main
-
-      - uses: goreleaser/goreleaser-action@v6
-        with:
-          version: "~> v2"
-          args: release --clean
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Required only if you use the Homebrew tap in .goreleaser.yml.
-          # Create a fine-grained PAT with write access to the homebrew-tap repo
-          # and add it as a secret named HOMEBREW_TAP_TOKEN.
-          # HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
