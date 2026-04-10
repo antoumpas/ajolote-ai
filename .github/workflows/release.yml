@@ -24,6 +24,32 @@ jobs:
       - name: Run tests
         run: go test ./...
 
+      - name: Update CHANGELOG.md
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          DATE=$(date -u +%Y-%m-%d)
+          PREV_TAG=$(git describe --abbrev=0 --tags "$(git rev-list --tags --skip=1 --max-count=1)" 2>/dev/null || echo "")
+
+          if [ -n "$PREV_TAG" ]; then
+            LOG=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges)
+          else
+            LOG=$(git log --pretty=format:"- %s (%h)" --no-merges)
+          fi
+
+          ENTRY="## ${TAG} — ${DATE}\n\n${LOG}\n"
+
+          if [ -f CHANGELOG.md ]; then
+            echo -e "${ENTRY}\n$(cat CHANGELOG.md)" > CHANGELOG.md
+          else
+            echo -e "${ENTRY}" > CHANGELOG.md
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CHANGELOG.md
+          git commit -m "chore: update CHANGELOG for ${TAG}"
+          git push origin HEAD:main
+
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"

@@ -39,6 +39,23 @@ checksum:
   name_template: "checksums.txt"
   algorithm: sha256
 
+changelog:
+  sort: asc
+  use: git
+  filters:
+    exclude:
+      - "^Merge"
+      - "^chore:"
+  groups:
+    - title: "Features"
+      regexp: "^[Aa]dd|^[Ii]mplement|^[Ss]upport|^[Gg]enerate"
+      order: 0
+    - title: "Bug Fixes"
+      regexp: "^[Ff]ix|^[Cc]orrect"
+      order: 1
+    - title: "Other Changes"
+      order: 999
+
 release:
   github:
     owner: antoumpas
