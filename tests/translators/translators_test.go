@@ -11,8 +11,7 @@ import (
 )
 
 func testConfig() *config.Config {
-	cfg := config.DefaultConfig()
-	cfg.Project.Name = "test-app"
+	cfg := config.DefaultConfig("test-app")
 	cfg.Project.Language = "Go"
 	cfg.Project.Stack = "Go / Gin / PostgreSQL"
 	cfg.Project.TestRunner = "go test"
@@ -25,17 +24,13 @@ func TestAllTranslatorsGenerate(t *testing.T) {
 		tr := tr
 		t.Run(tr.Name(), func(t *testing.T) {
 			dir := t.TempDir()
-			cfg := testConfig()
-
-			if err := tr.Generate(cfg, dir); err != nil {
+			if err := tr.Generate(testConfig(), dir); err != nil {
 				t.Fatalf("%s Generate: %v", tr.Name(), err)
 			}
-
 			for _, f := range tr.OutputFiles() {
-				full := filepath.Join(dir, f)
-				data, err := os.ReadFile(full)
+				data, err := os.ReadFile(filepath.Join(dir, f))
 				if err != nil {
-					t.Errorf("expected output file %s to exist: %v", f, err)
+					t.Errorf("expected output file %s: %v", f, err)
 					continue
 				}
 				if len(data) == 0 {
@@ -48,10 +43,8 @@ func TestAllTranslatorsGenerate(t *testing.T) {
 
 func TestClaudeTranslatorContent(t *testing.T) {
 	dir := t.TempDir()
-	cfg := testConfig()
-
 	tr := &translators.ClaudeTranslator{}
-	if err := tr.Generate(cfg, dir); err != nil {
+	if err := tr.Generate(testConfig(), dir); err != nil {
 		t.Fatal(err)
 	}
 
@@ -66,7 +59,7 @@ func TestClaudeTranslatorContent(t *testing.T) {
 	}
 }
 
-func TestCursorTranslatorMCPContent(t *testing.T) {
+func TestCursorMCPContent(t *testing.T) {
 	dir := t.TempDir()
 	cfg := testConfig()
 	cfg.MCP.Servers["filesystem"] = config.MCPServer{
@@ -80,9 +73,7 @@ func TestCursorTranslatorMCPContent(t *testing.T) {
 	}
 
 	data, _ := os.ReadFile(filepath.Join(dir, ".cursor/mcp.json"))
-	content := string(data)
-
-	if !strings.Contains(content, "filesystem") {
+	if !strings.Contains(string(data), "filesystem") {
 		t.Error(".cursor/mcp.json should contain filesystem server")
 	}
 }
@@ -93,8 +84,16 @@ func TestRegistryGet(t *testing.T) {
 			t.Errorf("Get(%q) failed: %v", name, err)
 		}
 	}
-
 	if _, err := translators.Get("unknown"); err == nil {
 		t.Error("expected error for unknown tool")
+	}
+}
+
+func TestNames(t *testing.T) {
+	names := translators.Names()
+	for _, expected := range []string{"claude", "cursor", "windsurf"} {
+		if !strings.Contains(names, expected) {
+			t.Errorf("Names() missing %q, got: %s", expected, names)
+		}
 	}
 }

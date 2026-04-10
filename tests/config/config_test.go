@@ -11,16 +11,13 @@ import (
 func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 
-	cfg := config.DefaultConfig()
-	cfg.Project.Name = "test-project"
+	cfg := config.DefaultConfig("test-project")
 	cfg.Project.Language = "Go"
-	cfg.Tools["claude"] = true
 
 	if err := config.Save(dir, cfg); err != nil {
 		t.Fatalf("Save: %v", err)
 	}
 
-	// File must exist
 	if _, err := os.Stat(filepath.Join(dir, config.ConfigPath)); err != nil {
 		t.Fatalf("config file not created: %v", err)
 	}
@@ -36,9 +33,6 @@ func TestSaveAndLoad(t *testing.T) {
 	if loaded.Project.Language != "Go" {
 		t.Errorf("got language %q, want %q", loaded.Project.Language, "Go")
 	}
-	if !loaded.Tools["claude"] {
-		t.Error("expected claude to be enabled")
-	}
 }
 
 func TestLoadMissingFile(t *testing.T) {
@@ -49,25 +43,13 @@ func TestLoadMissingFile(t *testing.T) {
 	}
 }
 
-func TestEnabledTools(t *testing.T) {
-	cfg := config.DefaultConfig()
-	cfg.Tools["claude"] = true
-	cfg.Tools["cursor"] = true
-
-	enabled := cfg.EnabledTools()
-	if len(enabled) != 2 {
-		t.Errorf("expected 2 enabled tools, got %d: %v", len(enabled), enabled)
-	}
-}
-
 func TestExists(t *testing.T) {
 	dir := t.TempDir()
 	if config.Exists(dir) {
 		t.Fatal("should not exist yet")
 	}
 
-	cfg := config.DefaultConfig()
-	if err := config.Save(dir, cfg); err != nil {
+	if err := config.Save(dir, config.DefaultConfig("test")); err != nil {
 		t.Fatal(err)
 	}
 

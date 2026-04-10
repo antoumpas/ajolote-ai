@@ -1,6 +1,9 @@
 package translators
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // All returns all registered translators in a stable order.
 func All() []Translator {
@@ -21,5 +24,14 @@ func Get(name string) (Translator, error) {
 			return t, nil
 		}
 	}
-	return nil, fmt.Errorf("unknown tool %q — supported tools: claude, cursor, windsurf, copilot, cline, aider", name)
+	return nil, fmt.Errorf("unknown tool %q — run 'ajolote use <tool>' with one of: %s", name, Names())
+}
+
+// Names returns a comma-separated list of all supported tool names.
+func Names() string {
+	names := make([]string, 0, len(All()))
+	for _, t := range All() {
+		names = append(names, t.Name())
+	}
+	return strings.Join(names, ", ")
 }

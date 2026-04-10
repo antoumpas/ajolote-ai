@@ -1,12 +1,13 @@
 package config
 
-// DefaultConfig returns a Config populated with sensible starter values.
-func DefaultConfig() *Config {
+// DefaultConfig returns a scaffold Config for a new project.
+// projectName is typically the base name of the project directory.
+func DefaultConfig(projectName string) *Config {
 	return &Config{
 		Project: Project{
-			Name:       "my-project",
+			Name:       projectName,
 			Stack:      "",
-			RepoType:   "polyrepo",
+			RepoType:   "",
 			Language:   "",
 			TestRunner: "",
 		},
@@ -41,14 +42,6 @@ func DefaultConfig() *Config {
 		Skills: []string{
 			".agents/skills/git.md",
 			".agents/skills/testing.md",
-		},
-		Tools: map[string]bool{
-			"claude":   false,
-			"cursor":   false,
-			"windsurf": false,
-			"copilot":  false,
-			"cline":    false,
-			"aider":    false,
 		},
 	}
 }

@@ -2,11 +2,10 @@ package config
 
 // Config is the canonical ajolote configuration stored in .agents/config.json.
 type Config struct {
-	Project Project            `json:"project"`
-	MCP     MCP                `json:"mcp"`
-	Rules   Rules              `json:"rules"`
-	Skills  []string           `json:"skills"`
-	Tools   map[string]bool    `json:"tools"`
+	Project Project  `json:"project"`
+	MCP     MCP      `json:"mcp"`
+	Rules   Rules    `json:"rules"`
+	Skills  []string `json:"skills"`
 }
 
 type Project struct {
@@ -36,16 +35,3 @@ type Rules struct {
 	Commits  []string `json:"commits"`
 }
 
-// AllTools is the ordered list of supported tool names.
-var AllTools = []string{"claude", "cursor", "windsurf", "copilot", "cline", "aider"}
-
-// EnabledTools returns tool names that are set to true.
-func (c *Config) EnabledTools() []string {
-	var enabled []string
-	for _, name := range AllTools {
-		if c.Tools[name] {
-			enabled = append(enabled, name)
-		}
-	}
-	return enabled
-}

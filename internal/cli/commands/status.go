@@ -15,8 +15,7 @@ import (
 func StatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
-		Short: "Show configuration status for each tool",
-		Long:  "Reports which tools are enabled, which generated files exist, and whether they are present.",
+		Short: "Show which tool configs have been generated locally",
 		RunE:  runStatus,
 	}
 }
@@ -32,36 +31,27 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	bold := color.New(color.Bold).SprintFunc()
 	green := color.New(color.FgGreen).SprintFunc()
 	yellow := color.New(color.FgYellow).SprintFunc()
-	red := color.New(color.FgRed).SprintFunc()
-	bold := color.New(color.Bold).SprintFunc()
 
-	fmt.Printf("\n%s: %s\n", bold("Project"), cfg.Project.Name)
-	fmt.Printf("%s: %s\n\n", bold("Config"), config.ConfigPath)
-
-	fmt.Println(bold("Tool Status:"))
+	fmt.Printf("\n%s: %s\n\n", bold("Project"), cfg.Project.Name)
+	fmt.Println(bold("Tool configs (local, gitignored):"))
 	fmt.Println()
 
 	for _, t := range translators.All() {
-		enabled := cfg.Tools[t.Name()]
-
-		statusLabel := red("disabled")
-		if enabled {
-			statusLabel = green("enabled")
+		allPresent := true
+		for _, f := range t.OutputFiles() {
+			if _, err := os.Stat(filepath.Join(projectRoot, f)); err != nil {
+				allPresent = false
+				break
+			}
 		}
 
-		fmt.Printf("  %-12s %s\n", t.Name(), statusLabel)
-
-		if enabled {
-			for _, f := range t.OutputFiles() {
-				full := filepath.Join(projectRoot, f)
-				if _, err := os.Stat(full); err == nil {
-					fmt.Printf("    %s %s\n", green("✔"), f)
-				} else {
-					fmt.Printf("    %s %s %s\n", yellow("!"), f, yellow("(not generated — run `ajolote sync`)"))
-				}
-			}
+		if allPresent {
+			fmt.Printf("  %s %-12s\n", green("✔"), t.Name())
+		} else {
+			fmt.Printf("  %s %-12s  %s\n", yellow("○"), t.Name(), yellow("run: ajolote use "+t.Name()))
 		}
 	}
 

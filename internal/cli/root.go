@@ -15,7 +15,8 @@ var rootCmd = &cobra.Command{
 	Long: `ajolote manages a canonical AI agent configuration (.agents/config.json)
 and translates it into each developer's preferred AI tool format.
 
-Tool-specific files are gitignored; only the canonical config is committed.`,
+  Maintainer: ajolote init        — scaffold config, update .gitignore, commit .agents/
+  Developer:  ajolote use claude  — generate local tool config from the shared config`,
 	Version: "0.1.0",
 }
 
@@ -28,8 +29,7 @@ func Execute() {
 
 func init() {
 	rootCmd.AddCommand(commands.InitCmd())
-	rootCmd.AddCommand(commands.SyncCmd())
+	rootCmd.AddCommand(commands.UseCmd())
 	rootCmd.AddCommand(commands.IgnoreCmd())
-	rootCmd.AddCommand(commands.AddCmd())
 	rootCmd.AddCommand(commands.StatusCmd())
 }

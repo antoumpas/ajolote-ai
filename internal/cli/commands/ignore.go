@@ -6,15 +6,13 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-
-	"github.com/ajolote-ai/ajolote/internal/config"
 )
 
 func IgnoreCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ignore",
-		Short: "Update the ajolote-ai block in .gitignore",
-		Long:  "Rewrites the managed <ajolote-ai> block in .gitignore based on currently enabled tools.",
+		Short: "Refresh the ajolote-ai block in .gitignore",
+		Long:  "Rewrites the managed <ajolote-ai> block in .gitignore to cover all supported tool files.",
 		RunE:  runIgnore,
 	}
 }
@@ -25,15 +23,11 @@ func runIgnore(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cfg, err := config.Load(projectRoot)
-	if err != nil {
+	if err := ignoreAllTools(projectRoot); err != nil {
 		return err
 	}
 
-	if err := runIgnoreWith(projectRoot, cfg); err != nil {
-		return err
-	}
-
+	printOK(".gitignore")
 	fmt.Println()
 	color.Green(".gitignore updated.")
 	return nil

@@ -25,10 +25,6 @@ func Load(projectRoot string) (*Config, error) {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 
-	if cfg.Tools == nil {
-		cfg.Tools = map[string]bool{}
-	}
-
 	return &cfg, nil
 }
 
