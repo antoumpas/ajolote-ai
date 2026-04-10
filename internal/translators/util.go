@@ -122,6 +122,47 @@ func parseFrontmatter(raw string) (description, body string) {
 	return description, strings.TrimSpace(rest[end+5:])
 }
 
+// importCommandFiles scans dir for files with the given extension, skips names in skip or existing,
+// and uses parse to convert each file into a Command.
+func importCommandFiles(dir, ext string, skip, existing map[string]bool, parse func(name, raw string) Command) ([]Command, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", dir, err)
+	}
+	var cmds []Command
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ext) {
+			continue
+		}
+		name := strings.TrimSuffix(e.Name(), ext)
+		if skip[name] || existing[name] {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil {
+			return nil, err
+		}
+		cmds = append(cmds, parse(name, string(data)))
+	}
+	return cmds, nil
+}
+
+// existingCommandNames returns a set of command names already in .agents/commands/.
+func existingCommandNames(projectRoot string) (map[string]bool, error) {
+	cmds, err := readCommands(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]bool, len(cmds))
+	for _, c := range cmds {
+		names[c.Name] = true
+	}
+	return names, nil
+}
+
 // fileListMarkdown renders a list of file paths as markdown bullets.
 func fileListMarkdown(heading string, paths []string) string {
 	if len(paths) == 0 {

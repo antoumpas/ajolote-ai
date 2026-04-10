@@ -46,9 +46,24 @@ func (t *ClaudeTranslator) Import(projectRoot string) (*ImportResult, error) {
 		return nil, err
 	}
 	if servers == nil {
-		return nil, nil // file doesn't exist
+		return nil, nil // no tool files present at all
 	}
-	return &ImportResult{NewMCPServers: servers}, nil
+
+	existing, err := existingCommandNames(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	skip := map[string]bool{"ajolote-sync": true}
+	cmds, err := importCommandFiles(filepath.Join(projectRoot, ".claude", "commands"), ".md", skip, existing, func(name, raw string) Command {
+		desc, body := parseFrontmatter(raw)
+		return Command{Name: name, Description: desc, Content: body}
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImportResult{NewMCPServers: servers, NewCommands: cmds}, nil
 }
 
 func (t *ClaudeTranslator) renderSlashCommand() string {

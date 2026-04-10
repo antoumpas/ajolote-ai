@@ -49,7 +49,23 @@ func (t *ClineTranslator) Import(projectRoot string) (*ImportResult, error) {
 	if servers == nil {
 		return nil, nil
 	}
-	return &ImportResult{NewMCPServers: servers}, nil
+
+	existing, err := existingCommandNames(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	skip := map[string]bool{"ajolote-sync": true}
+	cmds, err := importCommandFiles(filepath.Join(projectRoot, ".roo", "rules"), ".md", skip, existing, func(name, raw string) Command {
+		// Cline command files are prefixed with "# name\n\n"
+		body := strings.TrimPrefix(raw, "# "+name+"\n\n")
+		return Command{Name: name, Content: strings.TrimSpace(body)}
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImportResult{NewMCPServers: servers, NewCommands: cmds}, nil
 }
 
 func (t *ClineTranslator) renderSlashCommand() string {

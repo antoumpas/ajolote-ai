@@ -49,7 +49,23 @@ func (t *CursorTranslator) Import(projectRoot string) (*ImportResult, error) {
 	if servers == nil {
 		return nil, nil
 	}
-	return &ImportResult{NewMCPServers: servers}, nil
+
+	existing, err := existingCommandNames(projectRoot)
+	if err != nil {
+		return nil, err
+	}
+
+	skip := map[string]bool{"agents": true, "ajolote-sync": true}
+	cmds, err := importCommandFiles(filepath.Join(projectRoot, ".cursor", "rules"), ".mdc", skip, existing, func(name, raw string) Command {
+		// Strip MDC frontmatter (---\ndescription: ...\nalwaysApply: ...\n---\n\n)
+		desc, body := parseFrontmatter(raw)
+		return Command{Name: name, Description: desc, Content: body}
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ImportResult{NewMCPServers: servers, NewCommands: cmds}, nil
 }
 
 func (t *CursorTranslator) renderSlashCommand() string {

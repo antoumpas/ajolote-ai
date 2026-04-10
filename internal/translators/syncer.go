@@ -7,11 +7,13 @@ import "github.com/ajolote-ai/ajolote/internal/config"
 type ImportResult struct {
 	// NewMCPServers are servers found in the tool's config but absent from config.mcp.servers.
 	NewMCPServers map[string]config.MCPServer
+	// NewCommands are command files found in the tool's command directory but absent from .agents/commands/.
+	NewCommands []Command
 }
 
 // HasChanges reports whether the import found anything new.
 func (r *ImportResult) HasChanges() bool {
-	return len(r.NewMCPServers) > 0
+	return len(r.NewMCPServers) > 0 || len(r.NewCommands) > 0
 }
 
 // Syncer extends Translator with the ability to read a tool's existing config

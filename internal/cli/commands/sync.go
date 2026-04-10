@@ -92,6 +92,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 					configChanged = true
 				}
 			}
+			for _, cmd := range result.NewCommands {
+				if err := writeAgentsCommand(projectRoot, cmd); err != nil {
+					return fmt.Errorf("writing .agents/commands/%s.md: %w", cmd.Name, err)
+				}
+				fmt.Printf("  %s .agents/commands/%s.md  %s\n", up("↑"), cmd.Name, added("(new command added)"))
+				configChanged = true
+			}
 		}
 
 		// ↓ Export
@@ -109,10 +116,26 @@ func runSync(cmd *cobra.Command, args []string) error {
 		if err := config.Save(projectRoot, cfg); err != nil {
 			return err
 		}
-		color.Yellow(".agents/config.json updated — review and commit when ready.")
+		color.Yellow(".agents/ updated — review and commit when ready.")
 	} else {
 		color.Green("Done. Nothing new imported.")
 	}
 
 	return nil
+}
+
+// writeAgentsCommand writes a command to .agents/commands/<name>.md, creating the
+// directory if needed and adding the path to .gitignore if it isn't already covered.
+func writeAgentsCommand(projectRoot string, cmd translators.Command) error {
+	dir := filepath.Join(projectRoot, ".agents", "commands")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	var content string
+	if cmd.Description != "" {
+		content = "---\ndescription: " + cmd.Description + "\n---\n\n" + cmd.Content + "\n"
+	} else {
+		content = cmd.Content + "\n"
+	}
+	return os.WriteFile(filepath.Join(dir, cmd.Name+".md"), []byte(content), 0o644)
 }
