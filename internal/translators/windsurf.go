@@ -12,7 +12,7 @@ type WindsurfTranslator struct{}
 func (t *WindsurfTranslator) Name() string { return "windsurf" }
 
 func (t *WindsurfTranslator) OutputFiles() []string {
-	return []string{".windsurf/rules/agents.md"}
+	return []string{".windsurf/rules/agents.md", ".windsurf/workflows/ajolote-sync.yaml"}
 }
 
 func (t *WindsurfTranslator) Import(projectRoot string) (*ImportResult, error) {
@@ -23,7 +23,23 @@ func (t *WindsurfTranslator) Generate(cfg *config.Config, projectRoot string) er
 	if err := writeFile(projectRoot, ".windsurf/rules/agents.md", t.renderRules(cfg)); err != nil {
 		return fmt.Errorf("windsurf: %w", err)
 	}
+	if err := writeFile(projectRoot, ".windsurf/workflows/ajolote-sync.yaml", t.renderWorkflow()); err != nil {
+		return fmt.Errorf("windsurf workflow: %w", err)
+	}
 	return nil
+}
+
+func (t *WindsurfTranslator) renderWorkflow() string {
+	return `name: ajolote-sync
+description: Sync Windsurf config with the shared .agents/config.json
+steps:
+  - name: Run sync
+    run: ajolote sync windsurf
+  - name: Notify
+    say: |
+      Sync complete. If .agents/config.json was updated, review the changes
+      and commit the file so your teammates receive the updates.
+`
 }
 
 func (t *WindsurfTranslator) renderRules(cfg *config.Config) string {

@@ -14,7 +14,7 @@ type ClaudeTranslator struct{}
 func (t *ClaudeTranslator) Name() string { return "claude" }
 
 func (t *ClaudeTranslator) OutputFiles() []string {
-	return []string{"CLAUDE.md", ".claude/settings.json"}
+	return []string{"CLAUDE.md", ".claude/settings.json", ".claude/commands/ajolote-sync.md"}
 }
 
 func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -23,6 +23,9 @@ func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) erro
 	}
 	if err := writeFile(projectRoot, ".claude/settings.json", t.renderSettings(cfg)); err != nil {
 		return fmt.Errorf("claude settings: %w", err)
+	}
+	if err := writeFile(projectRoot, ".claude/commands/ajolote-sync.md", t.renderSlashCommand()); err != nil {
+		return fmt.Errorf("claude slash command: %w", err)
 	}
 	return nil
 }
@@ -36,6 +39,21 @@ func (t *ClaudeTranslator) Import(projectRoot string) (*ImportResult, error) {
 		return nil, nil // file doesn't exist
 	}
 	return &ImportResult{NewMCPServers: servers}, nil
+}
+
+func (t *ClaudeTranslator) renderSlashCommand() string {
+	return `Run the following shell command to sync your Claude Code configuration with the shared team config:
+
+` + "```" + `
+ajolote sync claude
+` + "```" + `
+
+This runs in two directions:
+- ↑ Imports any new MCP servers from .claude/settings.json into .agents/config.json
+- ↓ Regenerates CLAUDE.md and .claude/settings.json from the updated canonical config
+
+If .agents/config.json was updated, review the diff and commit it so your teammates receive the changes.
+`
 }
 
 func (t *ClaudeTranslator) renderCLAUDEmd(cfg *config.Config) string {

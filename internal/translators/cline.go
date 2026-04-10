@@ -14,7 +14,7 @@ type ClineTranslator struct{}
 func (t *ClineTranslator) Name() string { return "cline" }
 
 func (t *ClineTranslator) OutputFiles() []string {
-	return []string{".clinerules", ".roo/mcp.json"}
+	return []string{".clinerules", ".roo/mcp.json", ".roo/rules/ajolote-sync.md"}
 }
 
 func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -23,6 +23,9 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 	}
 	if err := writeFile(projectRoot, ".roo/mcp.json", t.renderMCP(cfg)); err != nil {
 		return fmt.Errorf("cline mcp: %w", err)
+	}
+	if err := writeFile(projectRoot, ".roo/rules/ajolote-sync.md", t.renderSlashCommand()); err != nil {
+		return fmt.Errorf("cline slash command: %w", err)
 	}
 	return nil
 }
@@ -36,6 +39,23 @@ func (t *ClineTranslator) Import(projectRoot string) (*ImportResult, error) {
 		return nil, nil
 	}
 	return &ImportResult{NewMCPServers: servers}, nil
+}
+
+func (t *ClineTranslator) renderSlashCommand() string {
+	return `# ajolote-sync
+
+When the user asks to sync or run ajolote-sync, execute the following shell command:
+
+` + "```" + `sh
+ajolote sync cline
+` + "```" + `
+
+This runs in two directions:
+- ↑ Imports any new MCP servers from .roo/mcp.json into .agents/config.json
+- ↓ Regenerates .clinerules and .roo/mcp.json from the updated canonical config
+
+If .agents/config.json was updated, tell the user to review and commit it.
+`
 }
 
 func (t *ClineTranslator) renderRules(cfg *config.Config) string {

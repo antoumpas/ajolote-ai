@@ -14,7 +14,7 @@ type CursorTranslator struct{}
 func (t *CursorTranslator) Name() string { return "cursor" }
 
 func (t *CursorTranslator) OutputFiles() []string {
-	return []string{".cursor/rules/agents.mdc", ".cursor/mcp.json"}
+	return []string{".cursor/rules/agents.mdc", ".cursor/mcp.json", ".cursor/rules/ajolote-sync.mdc"}
 }
 
 func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -23,6 +23,9 @@ func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) erro
 	}
 	if err := writeFile(projectRoot, ".cursor/mcp.json", t.renderMCP(cfg)); err != nil {
 		return fmt.Errorf("cursor mcp: %w", err)
+	}
+	if err := writeFile(projectRoot, ".cursor/rules/ajolote-sync.mdc", t.renderSlashCommand()); err != nil {
+		return fmt.Errorf("cursor slash command: %w", err)
 	}
 	return nil
 }
@@ -36,6 +39,26 @@ func (t *CursorTranslator) Import(projectRoot string) (*ImportResult, error) {
 		return nil, nil
 	}
 	return &ImportResult{NewMCPServers: servers}, nil
+}
+
+func (t *CursorTranslator) renderSlashCommand() string {
+	return `---
+description: Sync Cursor config with the shared .agents/config.json
+alwaysApply: false
+---
+
+When the user asks to sync or run ajolote-sync, run the following shell command:
+
+` + "```" + `sh
+ajolote sync cursor
+` + "```" + `
+
+This runs in two directions:
+- ↑ Imports any new MCP servers from .cursor/mcp.json into .agents/config.json
+- ↓ Regenerates .cursor/rules/agents.mdc and .cursor/mcp.json from the updated canonical config
+
+If .agents/config.json was updated, tell the user to review and commit it.
+`
 }
 
 func (t *CursorTranslator) renderRules(cfg *config.Config) string {
