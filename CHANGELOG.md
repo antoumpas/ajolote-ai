@@ -1,3 +1,8 @@
+## v0.3.0 — 2026-04-10
+
+- init: detect existing tool configs and import MCP servers and commands (cb408fe)
+- Add CHANGELOG.md auto-updated on every release (7af728d)
+
 ## v0.2.0 — 2026-04-10
 
 - Add personas and context to .agents/ scaffold (049c93d)
