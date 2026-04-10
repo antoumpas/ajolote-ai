@@ -24,13 +24,16 @@ builds:
 
 archives:
   - id: ajolote
-    format: tar.gz
     name_template: "{{ .ProjectName }}_{{ .Os }}_{{ .Arch }}"
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     files:
-      - README.md
+      - LICENSE*
+      - README*
 
 checksum:
   name_template: "checksums.txt"
@@ -38,23 +41,20 @@ checksum:
 
 release:
   github:
-    owner: ajolote-ai
-    name: ajolote
+    owner: antoumpas
+    name: ajolote-ai
   draft: false
   prerelease: auto
   name_template: "v{{.Version}}"
 
-brews:
-  - name: ajolote
-    repository:
-      owner: ajolote-ai
-      name: homebrew-tap
-    commit_author:
-      name: ajolote-bot
-      email: bot@ajolote.ai
-    homepage: https://github.com/ajolote-ai/ajolote
-    description: "Shared AI agent configuration for multi-tool teams"
-    install: |
-      bin.install "ajolote"
-    test: |
-      system "#{bin}/ajolote", "--version"
+# Uncomment and configure once you have a homebrew-tap repo and HOMEBREW_TAP_TOKEN secret.
+# homebrew_casks:
+#   - name: ajolote
+#     repository:
+#       owner: ajolote-ai
+#       name: homebrew-tap
+#     commit_author:
+#       name: ajolote-bot
+#       email: bot@ajolote.ai
+#     homepage: https://github.com/ajolote-ai/ajolote
+#     description: "Shared AI agent configuration for multi-tool teams"

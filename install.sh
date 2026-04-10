@@ -1,10 +1,10 @@
 #!/usr/bin/env sh
 # ajolote installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/ajolote-ai/ajolote/main/install.sh | sh
+# Usage: curl -fsSL https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.sh | sh
 
 set -e
 
-REPO="ajolote-ai/ajolote"
+REPO="antoumpas/ajolote-ai"
 BINARY="ajolote"
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
