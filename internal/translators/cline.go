@@ -3,6 +3,7 @@ package translators
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,12 +43,14 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 }
 
 func (t *ClineTranslator) Import(projectRoot string) (*ImportResult, error) {
-	servers, err := parseMCPFile(filepath.Join(projectRoot, ".roo", "mcp.json"))
+	rooDir := filepath.Join(projectRoot, ".roo")
+	if _, err := os.Stat(rooDir); os.IsNotExist(err) {
+		return nil, nil // Cline not present in this project
+	}
+
+	servers, err := parseMCPFile(filepath.Join(rooDir, "mcp.json"))
 	if err != nil {
 		return nil, err
-	}
-	if servers == nil {
-		return nil, nil
 	}
 
 	existing, err := existingCommandNames(projectRoot)
@@ -56,8 +59,7 @@ func (t *ClineTranslator) Import(projectRoot string) (*ImportResult, error) {
 	}
 
 	skip := map[string]bool{"ajolote-sync": true}
-	cmds, err := importCommandFiles(filepath.Join(projectRoot, ".roo", "rules"), ".md", skip, existing, func(name, raw string) Command {
-		// Cline command files are prefixed with "# name\n\n"
+	cmds, err := importCommandFiles(filepath.Join(rooDir, "rules"), ".md", skip, existing, func(name, raw string) Command {
 		body := strings.TrimPrefix(raw, "# "+name+"\n\n")
 		return Command{Name: name, Content: strings.TrimSpace(body)}
 	})

@@ -340,6 +340,32 @@ func TestClineImportCommands(t *testing.T) {
 	}
 }
 
+func TestClaudeImportCommandsWithoutSettingsJSON(t *testing.T) {
+	// Regression: Import() used to return nil if settings.json was absent,
+	// skipping commands even when .claude/commands/ had content.
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".claude", "commands"), 0o755)
+	// No settings.json — project uses Claude but has no MCP servers configured
+
+	os.WriteFile(filepath.Join(dir, ".claude/commands/deploy.md"),
+		[]byte("---\ndescription: Deploy\n---\n\nRun deploy.sh\n"), 0o644)
+
+	tr := &translators.ClaudeTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result == nil {
+		t.Fatal("expected non-nil ImportResult when .claude/ exists but settings.json is absent")
+	}
+	if len(result.NewCommands) != 1 {
+		t.Fatalf("expected 1 imported command, got %d", len(result.NewCommands))
+	}
+	if result.NewCommands[0].Name != "deploy" {
+		t.Errorf("expected command 'deploy', got %q", result.NewCommands[0].Name)
+	}
+}
+
 func TestImportNoFilesReturnsNil(t *testing.T) {
 	// Tools with no files on disk should return nil (not empty result)
 	for _, tr := range []translators.Syncer{

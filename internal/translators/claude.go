@@ -3,6 +3,7 @@ package translators
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -41,12 +42,14 @@ func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) erro
 }
 
 func (t *ClaudeTranslator) Import(projectRoot string) (*ImportResult, error) {
-	servers, err := parseMCPFile(filepath.Join(projectRoot, ".claude", "settings.json"))
+	claudeDir := filepath.Join(projectRoot, ".claude")
+	if _, err := os.Stat(claudeDir); os.IsNotExist(err) {
+		return nil, nil // Claude not present in this project
+	}
+
+	servers, err := parseMCPFile(filepath.Join(claudeDir, "settings.json"))
 	if err != nil {
 		return nil, err
-	}
-	if servers == nil {
-		return nil, nil // no tool files present at all
 	}
 
 	existing, err := existingCommandNames(projectRoot)
@@ -55,7 +58,7 @@ func (t *ClaudeTranslator) Import(projectRoot string) (*ImportResult, error) {
 	}
 
 	skip := map[string]bool{"ajolote-sync": true}
-	cmds, err := importCommandFiles(filepath.Join(projectRoot, ".claude", "commands"), ".md", skip, existing, func(name, raw string) Command {
+	cmds, err := importCommandFiles(filepath.Join(claudeDir, "commands"), ".md", skip, existing, func(name, raw string) Command {
 		desc, body := parseFrontmatter(raw)
 		return Command{Name: name, Description: desc, Content: body}
 	})

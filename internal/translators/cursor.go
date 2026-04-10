@@ -3,6 +3,7 @@ package translators
 import (
 	"encoding/json"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -42,12 +43,14 @@ func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) erro
 }
 
 func (t *CursorTranslator) Import(projectRoot string) (*ImportResult, error) {
-	servers, err := parseMCPFile(filepath.Join(projectRoot, ".cursor", "mcp.json"))
+	cursorDir := filepath.Join(projectRoot, ".cursor")
+	if _, err := os.Stat(cursorDir); os.IsNotExist(err) {
+		return nil, nil // Cursor not present in this project
+	}
+
+	servers, err := parseMCPFile(filepath.Join(cursorDir, "mcp.json"))
 	if err != nil {
 		return nil, err
-	}
-	if servers == nil {
-		return nil, nil
 	}
 
 	existing, err := existingCommandNames(projectRoot)
@@ -56,8 +59,7 @@ func (t *CursorTranslator) Import(projectRoot string) (*ImportResult, error) {
 	}
 
 	skip := map[string]bool{"agents": true, "ajolote-sync": true}
-	cmds, err := importCommandFiles(filepath.Join(projectRoot, ".cursor", "rules"), ".mdc", skip, existing, func(name, raw string) Command {
-		// Strip MDC frontmatter (---\ndescription: ...\nalwaysApply: ...\n---\n\n)
+	cmds, err := importCommandFiles(filepath.Join(cursorDir, "rules"), ".mdc", skip, existing, func(name, raw string) Command {
 		desc, body := parseFrontmatter(raw)
 		return Command{Name: name, Description: desc, Content: body}
 	})
