@@ -1,5 +1,12 @@
 ## v0.3.0 — 2026-04-10
 
+- fix: run CHANGELOG update after GoReleaser, not before (fbf9616)
+- chore: update CHANGELOG for v0.3.0 (4ffb020)
+- init: detect existing tool configs and import MCP servers and commands (cb408fe)
+- Add CHANGELOG.md auto-updated on every release (7af728d)
+
+## v0.3.0 — 2026-04-10
+
 - init: detect existing tool configs and import MCP servers and commands (cb408fe)
 - Add CHANGELOG.md auto-updated on every release (7af728d)
 
