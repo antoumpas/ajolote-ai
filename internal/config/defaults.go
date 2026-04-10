@@ -189,6 +189,25 @@ const DataModelContextContent = `# Data Model
 <!-- Naming conventions, soft-delete patterns, timestamps, etc. -->
 `
 
+// ReviewCommandContent is seeded into .agents/commands/review.md.
+const ReviewCommandContent = `---
+description: Review recent changes for correctness, tests, and style
+---
+
+Review the current changes (staged files, recent commits, or the diff since main).
+Apply the reviewer persona from ` + "`.agents/personas/reviewer.md`" + `.
+
+Focus on:
+- Does the change do what it claims?
+- Are edge cases handled?
+- Is test coverage adequate?
+- Are there security implications?
+- Does the code follow the conventions in ` + "`.agents/skills/`" + `?
+
+Provide feedback with specific file and line references.
+Separate blocking issues from suggestions.
+`
+
 // GlossaryContextContent is seeded into .agents/context/glossary.md.
 const GlossaryContextContent = `# Glossary
 

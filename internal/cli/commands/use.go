@@ -3,6 +3,8 @@ package commands
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -17,6 +19,8 @@ func UseCmd() *cobra.Command {
 		Short: "Generate local config files for your AI tool",
 		Long: `Reads .agents/config.json and generates the config files for the specified tool.
 Generated files are gitignored — they stay local to your machine.
+
+Commands defined in .agents/commands/ are translated into the tool's native format.
 
 Supported tools: claude, cursor, windsurf, copilot, cline, aider`,
 		Args:    cobra.ExactArgs(1),
@@ -47,8 +51,22 @@ func runUse(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("generating %s config: %w", toolName, err)
 	}
 
+	// Print generated files — walk directories for accurate listing
 	for _, f := range t.OutputFiles() {
-		printOK(f)
+		if strings.HasSuffix(f, "/") {
+			// Directory pattern — list what's actually inside
+			dir := filepath.Join(projectRoot, f)
+			entries, err := os.ReadDir(dir)
+			if err == nil {
+				for _, e := range entries {
+					if !e.IsDir() {
+						printOK(filepath.Join(f, e.Name()))
+					}
+				}
+			}
+		} else {
+			printOK(f)
+		}
 	}
 
 	fmt.Println()

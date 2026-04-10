@@ -14,7 +14,8 @@ type CursorTranslator struct{}
 func (t *CursorTranslator) Name() string { return "cursor" }
 
 func (t *CursorTranslator) OutputFiles() []string {
-	return []string{".cursor/rules/agents.mdc", ".cursor/mcp.json", ".cursor/rules/ajolote-sync.mdc"}
+	// .cursor/rules/ covers agents.mdc, ajolote-sync.mdc, and all generated command files
+	return []string{".cursor/rules/", ".cursor/mcp.json"}
 }
 
 func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -26,6 +27,16 @@ func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) erro
 	}
 	if err := writeFile(projectRoot, ".cursor/rules/ajolote-sync.mdc", t.renderSlashCommand()); err != nil {
 		return fmt.Errorf("cursor slash command: %w", err)
+	}
+	cmds, err := readCommands(projectRoot)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range cmds {
+		content := "---\ndescription: " + cmd.Description + "\nalwaysApply: false\n---\n\n" + cmd.Content + "\n"
+		if err := writeFile(projectRoot, ".cursor/rules/"+cmd.Name+".mdc", content); err != nil {
+			return fmt.Errorf("cursor command %s: %w", cmd.Name, err)
+		}
 	}
 	return nil
 }

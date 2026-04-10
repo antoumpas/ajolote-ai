@@ -91,6 +91,16 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	printOK(".agents/context/glossary.md")
 
+	// Seed commands
+	commandsDir := filepath.Join(projectRoot, ".agents", "commands")
+	if err := os.MkdirAll(commandsDir, 0o755); err != nil {
+		return err
+	}
+	if err := seedFile(filepath.Join(commandsDir, "review.md"), config.ReviewCommandContent); err != nil {
+		return err
+	}
+	printOK(".agents/commands/review.md")
+
 	// Gitignore all tool output files upfront
 	if err := ignoreAllTools(projectRoot); err != nil {
 		return err

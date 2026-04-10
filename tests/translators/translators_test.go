@@ -28,13 +28,33 @@ func TestAllTranslatorsGenerate(t *testing.T) {
 				t.Fatalf("%s Generate: %v", tr.Name(), err)
 			}
 			for _, f := range tr.OutputFiles() {
-				data, err := os.ReadFile(filepath.Join(dir, f))
-				if err != nil {
-					t.Errorf("expected output file %s: %v", f, err)
-					continue
-				}
-				if len(data) == 0 {
-					t.Errorf("output file %s is empty", f)
+				full := filepath.Join(dir, f)
+				if strings.HasSuffix(f, "/") {
+					// Directory pattern — verify at least one file was written inside
+					entries, err := os.ReadDir(full)
+					if err != nil {
+						t.Errorf("expected output directory %s: %v", f, err)
+						continue
+					}
+					hasFile := false
+					for _, e := range entries {
+						if !e.IsDir() {
+							hasFile = true
+							break
+						}
+					}
+					if !hasFile {
+						t.Errorf("output directory %s is empty", f)
+					}
+				} else {
+					data, err := os.ReadFile(full)
+					if err != nil {
+						t.Errorf("expected output file %s: %v", f, err)
+						continue
+					}
+					if len(data) == 0 {
+						t.Errorf("output file %s is empty", f)
+					}
 				}
 			}
 		})

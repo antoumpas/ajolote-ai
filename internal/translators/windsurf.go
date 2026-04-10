@@ -12,7 +12,8 @@ type WindsurfTranslator struct{}
 func (t *WindsurfTranslator) Name() string { return "windsurf" }
 
 func (t *WindsurfTranslator) OutputFiles() []string {
-	return []string{".windsurf/rules/agents.md", ".windsurf/workflows/ajolote-sync.yaml"}
+	// directory patterns cover all generated rules and workflow files
+	return []string{".windsurf/rules/", ".windsurf/workflows/"}
 }
 
 func (t *WindsurfTranslator) Import(projectRoot string) (*ImportResult, error) {
@@ -25,6 +26,19 @@ func (t *WindsurfTranslator) Generate(cfg *config.Config, projectRoot string) er
 	}
 	if err := writeFile(projectRoot, ".windsurf/workflows/ajolote-sync.yaml", t.renderWorkflow()); err != nil {
 		return fmt.Errorf("windsurf workflow: %w", err)
+	}
+	cmds, err := readCommands(projectRoot)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range cmds {
+		content := "name: " + cmd.Name + "\ndescription: " + cmd.Description + "\nsteps:\n  - name: Execute\n    say: |\n"
+		for _, line := range strings.Split(cmd.Content, "\n") {
+			content += "      " + line + "\n"
+		}
+		if err := writeFile(projectRoot, ".windsurf/workflows/"+cmd.Name+".yaml", content); err != nil {
+			return fmt.Errorf("windsurf command %s: %w", cmd.Name, err)
+		}
 	}
 	return nil
 }

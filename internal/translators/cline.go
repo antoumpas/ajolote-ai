@@ -14,7 +14,8 @@ type ClineTranslator struct{}
 func (t *ClineTranslator) Name() string { return "cline" }
 
 func (t *ClineTranslator) OutputFiles() []string {
-	return []string{".clinerules", ".roo/mcp.json", ".roo/rules/ajolote-sync.md"}
+	// .roo/ covers mcp.json, rules/, and all generated command files
+	return []string{".clinerules", ".roo/"}
 }
 
 func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -26,6 +27,16 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 	}
 	if err := writeFile(projectRoot, ".roo/rules/ajolote-sync.md", t.renderSlashCommand()); err != nil {
 		return fmt.Errorf("cline slash command: %w", err)
+	}
+	cmds, err := readCommands(projectRoot)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range cmds {
+		content := "# " + cmd.Name + "\n\n" + cmd.Content + "\n"
+		if err := writeFile(projectRoot, ".roo/rules/"+cmd.Name+".md", content); err != nil {
+			return fmt.Errorf("cline command %s: %w", cmd.Name, err)
+		}
 	}
 	return nil
 }

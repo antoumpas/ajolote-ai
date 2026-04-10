@@ -14,7 +14,8 @@ type ClaudeTranslator struct{}
 func (t *ClaudeTranslator) Name() string { return "claude" }
 
 func (t *ClaudeTranslator) OutputFiles() []string {
-	return []string{"CLAUDE.md", ".claude/settings.json", ".claude/commands/ajolote-sync.md"}
+	// .claude/commands/ covers ajolote-sync.md and all generated command files
+	return []string{"CLAUDE.md", ".claude/settings.json", ".claude/commands/"}
 }
 
 func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -26,6 +27,15 @@ func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) erro
 	}
 	if err := writeFile(projectRoot, ".claude/commands/ajolote-sync.md", t.renderSlashCommand()); err != nil {
 		return fmt.Errorf("claude slash command: %w", err)
+	}
+	cmds, err := readCommands(projectRoot)
+	if err != nil {
+		return err
+	}
+	for _, cmd := range cmds {
+		if err := writeFile(projectRoot, ".claude/commands/"+cmd.Name+".md", cmd.Content); err != nil {
+			return fmt.Errorf("claude command %s: %w", cmd.Name, err)
+		}
 	}
 	return nil
 }
