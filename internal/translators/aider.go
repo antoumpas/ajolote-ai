@@ -37,7 +37,7 @@ func (t *AiderTranslator) renderConf(cfg *config.Config) string {
 	var readFiles []string
 	readFiles = append(readFiles, cfg.Rules...)
 	readFiles = append(readFiles, cfg.Skills...)
-	readFiles = append(readFiles, cfg.Personas...)
+	readFiles = append(readFiles, personaPaths(cfg.Personas)...)
 	readFiles = append(readFiles, cfg.Context...)
 	for _, sr := range cfg.ScopedRules {
 		readFiles = append(readFiles, sr.Path)

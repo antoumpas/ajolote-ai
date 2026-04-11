@@ -14,9 +14,9 @@ func DefaultConfig() *Config {
 			".agents/skills/git.md",
 			".agents/skills/testing.md",
 		},
-		Personas: []string{
-			".agents/personas/reviewer.md",
-			".agents/personas/architect.md",
+		Personas: []Persona{
+			{Path: ".agents/personas/reviewer.md"},
+			{Path: ".agents/personas/architect.md"},
 		},
 		Context: []string{
 			".agents/context/architecture.md",

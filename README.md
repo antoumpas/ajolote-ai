@@ -132,10 +132,19 @@ Rules always flow **config → tool** only. `.agents/config.json` is the authori
     ".agents/skills/testing.md"
   ],
 
-  // Personas — role-based behaviours agents should adopt for specific tasks
+  // Personas — role-based behaviours agents should adopt for specific tasks.
+  // Simple string form (backward compatible) or object form with optional Claude subagent metadata.
   "personas": [
-    ".agents/personas/reviewer.md",
-    ".agents/personas/architect.md"
+    ".agents/personas/reviewer.md",  // simple form — rendered as @file import in CLAUDE.md
+    {
+      "path": ".agents/personas/architect.md",
+      "claude": {
+        // Generates .claude/agents/architect.md — a proper Claude Code subagent file
+        "model": "haiku",               // "haiku" | "sonnet" | "opus" | full model ID
+        "tools": ["Read", "Grep", "Glob"],
+        "description": "Software architect. Invoke for design decisions and trade-off analysis."
+      }
+    }
   ],
 
   // Context — background knowledge about the project (keep these up to date)
@@ -165,7 +174,12 @@ Rules always flow **config → tool** only. `.agents/config.json` is the authori
 | `scoped_rules[].globs` | string[] | Glob patterns that trigger this rule (e.g. `**/*.tsx`) |
 | `scoped_rules[].path` | string | Path to the `.md` rule file in `.agents/rules/` |
 | `skills` | string[] | Paths to skill files — reusable task instructions |
-| `personas` | string[] | Paths to persona files — role-based agent behaviours |
+| `personas` | string[] \| object[] | Persona entries — plain path string or object with optional `claude` block |
+| `personas[].path` | string | Path to the `.md` persona file |
+| `personas[].claude` | object | Optional — generates a `.claude/agents/<name>.md` subagent file for Claude Code |
+| `personas[].claude.model` | string | `"haiku"` \| `"sonnet"` \| `"opus"` or full model ID |
+| `personas[].claude.tools` | string[] | Claude Code tool names the subagent is allowed to use |
+| `personas[].claude.description` | string | Auto-invocation trigger text; derived from first paragraph of persona file if omitted |
 | `context` | string[] | Paths to context files — background knowledge about the project |
 
 ---
@@ -224,6 +238,24 @@ Generates two files:
   }
 }
 ```
+
+**`.claude/agents/<name>.md`** — generated for each persona that has a `claude:` block. This creates a proper Claude Code subagent with YAML frontmatter:
+
+```markdown
+---
+name: Architect
+description: Software architect. Invoke for design decisions and trade-off analysis.
+model: claude-haiku-4-5-20251001
+tools:
+  - Read
+  - Grep
+  - Glob
+---
+
+@.agents/personas/architect.md
+```
+
+Personas without a `claude:` block are not affected — they continue to appear as `@file` imports in `CLAUDE.md`.
 
 ---
 

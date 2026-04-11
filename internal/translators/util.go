@@ -341,6 +341,32 @@ func stripFrontmatter(raw string) string {
 	return strings.TrimSpace(rest[end+5:])
 }
 
+// personaPaths extracts the Path field from each Persona, returning a plain []string
+// of file paths suitable for use with atFileList, inlineFiles, and similar helpers.
+func personaPaths(personas []config.Persona) []string {
+	paths := make([]string, len(personas))
+	for i, p := range personas {
+		paths[i] = p.Path
+	}
+	return paths
+}
+
+// claudeModelAliases maps shorthand names to full Claude model IDs.
+var claudeModelAliases = map[string]string{
+	"haiku":  "claude-haiku-4-5-20251001",
+	"sonnet": "claude-sonnet-4-6",
+	"opus":   "claude-opus-4-6",
+}
+
+// resolveModel maps a model shorthand to its full ID, or returns the input unchanged
+// if it is already a full model ID or unknown.
+func resolveModel(model string) string {
+	if full, ok := claudeModelAliases[model]; ok {
+		return full
+	}
+	return model
+}
+
 // fileListMarkdown renders a list of file paths as markdown bullets.
 func fileListMarkdown(heading string, paths []string) string {
 	if len(paths) == 0 {

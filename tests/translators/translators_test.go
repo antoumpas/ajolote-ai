@@ -26,11 +26,12 @@ func seedCommand(t *testing.T, dir, name, content string) {
 	}
 }
 
-// scopedOnlyDirs are output directories only created when scoped_rules are configured.
+// scopedOnlyDirs are output directories only created under specific conditions.
 // They are absent from a minimal test config and must not fail TestAllTranslatorsGenerate.
 var scopedOnlyDirs = map[string]bool{
-	".claude/rules/":         true,
-	".github/instructions/":  true,
+	".claude/rules/":        true,
+	".github/instructions/": true,
+	".claude/agents/":       true, // only written when a persona has a claude: block
 }
 
 func TestAllTranslatorsGenerate(t *testing.T) {
@@ -946,5 +947,153 @@ func TestMergeUserMCPConfig(t *testing.T) {
 	}
 	if strings.Contains(string(settings), "existing-server") {
 		t.Error("project settings.json must not contain user-scoped servers")
+	}
+}
+
+// seedPersonaFile writes a minimal persona markdown file to dir at the given path.
+func seedPersonaFile(t *testing.T, dir, relPath, content string) {
+	t.Helper()
+	full := filepath.Join(dir, relPath)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// agentPersonaConfig returns a config where the reviewer persona has a claude: block.
+func agentPersonaConfig() *config.Config {
+	cfg := testConfig()
+	cfg.Personas = []config.Persona{
+		{
+			Path: ".agents/personas/reviewer.md",
+			Claude: &config.ClaudeAgent{
+				Model:       "haiku",
+				Tools:       []string{"Read", "Grep", "Glob"},
+				Description: "Expert code reviewer focused on correctness and coverage.",
+			},
+		},
+		{Path: ".agents/personas/architect.md"}, // no claude block
+	}
+	return cfg
+}
+
+func TestClaudeAgentFileGenerated(t *testing.T) {
+	dir := t.TempDir()
+	cfg := agentPersonaConfig()
+
+	seedPersonaFile(t, dir, ".agents/personas/reviewer.md", "# Persona: Code Reviewer\n\nReview code with care.\n")
+	seedPersonaFile(t, dir, ".agents/personas/architect.md", "# Persona: Architect\n\nThink in trade-offs.\n")
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	agentPath := filepath.Join(dir, ".claude", "agents", "reviewer.md")
+	data, err := os.ReadFile(agentPath)
+	if err != nil {
+		t.Fatalf("expected .claude/agents/reviewer.md to be created: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, "name: Reviewer") {
+		t.Errorf("agent file should contain 'name: Reviewer' (derived from filename), got:\n%s", content)
+	}
+	if !strings.Contains(content, "description: Expert code reviewer focused on correctness and coverage.") {
+		t.Errorf("agent file should contain explicit description, got:\n%s", content)
+	}
+	if !strings.Contains(content, "model: claude-haiku-4-5-20251001") {
+		t.Errorf("agent file should contain resolved model ID, got:\n%s", content)
+	}
+	if !strings.Contains(content, "  - Read") || !strings.Contains(content, "  - Grep") {
+		t.Errorf("agent file should contain tools list, got:\n%s", content)
+	}
+	if !strings.Contains(content, "@.agents/personas/reviewer.md") {
+		t.Errorf("agent file should @-import the persona file, got:\n%s", content)
+	}
+}
+
+func TestClaudeAgentModelResolution(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	cfg.Personas = []config.Persona{
+		{Path: ".agents/personas/reviewer.md", Claude: &config.ClaudeAgent{Model: "haiku"}},
+		{Path: ".agents/personas/architect.md", Claude: &config.ClaudeAgent{Model: "claude-opus-4-6"}},
+	}
+	seedPersonaFile(t, dir, ".agents/personas/reviewer.md", "# Reviewer\n\nReview.\n")
+	seedPersonaFile(t, dir, ".agents/personas/architect.md", "# Architect\n\nDesign.\n")
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	reviewerData, _ := os.ReadFile(filepath.Join(dir, ".claude", "agents", "reviewer.md"))
+	if !strings.Contains(string(reviewerData), "model: claude-haiku-4-5-20251001") {
+		t.Errorf("'haiku' shorthand should resolve to full ID, got:\n%s", string(reviewerData))
+	}
+
+	architectData, _ := os.ReadFile(filepath.Join(dir, ".claude", "agents", "architect.md"))
+	if !strings.Contains(string(architectData), "model: claude-opus-4-6") {
+		t.Errorf("full model ID should pass through unchanged, got:\n%s", string(architectData))
+	}
+}
+
+func TestClaudeAgentDescriptionFallback(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	cfg.Personas = []config.Persona{
+		{
+			Path:   ".agents/personas/reviewer.md",
+			Claude: &config.ClaudeAgent{Model: "sonnet"}, // no Description set
+		},
+	}
+	// First non-heading, non-blank line should be extracted as description
+	seedPersonaFile(t, dir, ".agents/personas/reviewer.md",
+		"# Persona: Code Reviewer\n\nWhen acting as a code reviewer, adopt these priorities.\n")
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".claude", "agents", "reviewer.md"))
+	if !strings.Contains(string(data), "description: When acting as a code reviewer") {
+		t.Errorf("should derive description from persona file first paragraph, got:\n%s", string(data))
+	}
+}
+
+func TestClaudeNoAgentWithoutBlock(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig() // default config has no claude: block on any persona
+
+	seedPersonaFile(t, dir, ".agents/personas/reviewer.md", "# Reviewer\n\nReview.\n")
+	seedPersonaFile(t, dir, ".agents/personas/architect.md", "# Architect\n\nDesign.\n")
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	agentsDir := filepath.Join(dir, ".claude", "agents")
+	if _, err := os.Stat(agentsDir); !os.IsNotExist(err) {
+		t.Error(".claude/agents/ should not be created when no persona has a claude: block")
+	}
+}
+
+func TestAllTranslatorsWithAgentPersona(t *testing.T) {
+	cfg := agentPersonaConfig()
+	for _, tr := range translators.All() {
+		tr := tr
+		t.Run(tr.Name(), func(t *testing.T) {
+			dir := t.TempDir()
+			seedPersonaFile(t, dir, ".agents/personas/reviewer.md", "# Reviewer\n\nReview.\n")
+			seedPersonaFile(t, dir, ".agents/personas/architect.md", "# Architect\n\nDesign.\n")
+			if err := tr.Generate(cfg, dir); err != nil {
+				t.Fatalf("%s Generate with agent persona: %v", tr.Name(), err)
+			}
+		})
 	}
 }

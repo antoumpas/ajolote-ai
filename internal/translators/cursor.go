@@ -130,7 +130,7 @@ func (t *CursorTranslator) renderRules(cfg *config.Config) string {
 	sb.WriteString("---\n\n")
 	sb.WriteString(fileListMarkdown("Rules", cfg.Rules))
 	sb.WriteString(fileListMarkdown("Skills", cfg.Skills))
-	sb.WriteString(fileListMarkdown("Personas", cfg.Personas))
+	sb.WriteString(fileListMarkdown("Personas", personaPaths(cfg.Personas)))
 	sb.WriteString(fileListMarkdown("Context", cfg.Context))
 	return sb.String()
 }
