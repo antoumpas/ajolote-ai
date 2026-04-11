@@ -405,7 +405,7 @@ func TestCursorMCPContent(t *testing.T) {
 }
 
 func TestRegistryGet(t *testing.T) {
-	for _, name := range []string{"claude", "cursor", "windsurf", "copilot", "cline", "aider"} {
+	for _, name := range []string{"claude", "cursor", "windsurf", "copilot", "cline", "aider", "gemini", "codex"} {
 		if _, err := translators.Get(name); err != nil {
 			t.Errorf("Get(%q) failed: %v", name, err)
 		}
@@ -1178,5 +1178,134 @@ func TestAllTranslatorsWithAgentPersona(t *testing.T) {
 				t.Fatalf("%s Generate with agent persona: %v", tr.Name(), err)
 			}
 		})
+	}
+}
+
+// --- Gemini CLI translator tests ---
+
+func TestGeminiGEMINIMdGenerated(t *testing.T) {
+	dir := t.TempDir()
+	tr := &translators.GeminiTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
+	if err != nil {
+		t.Fatalf("GEMINI.md not created: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "@.agents/rules/general.md") {
+		t.Error("GEMINI.md should contain @file import for general.md")
+	}
+}
+
+func TestGeminiUsesAtFileImports(t *testing.T) {
+	dir := t.TempDir()
+	tr := &translators.GeminiTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, "GEMINI.md"))
+	content := string(data)
+
+	// Should use @file imports, not inlined content
+	if !strings.Contains(content, "@.agents/") {
+		t.Error("GEMINI.md should use @file imports")
+	}
+	// Should not inline file contents (no "# General" heading from general.md)
+	if strings.Contains(content, "Always read before writing") {
+		t.Error("GEMINI.md should not inline file content — use @file imports")
+	}
+}
+
+// --- Codex CLI translator tests ---
+
+func TestCodexAGENTSmdGenerated(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	// Write the actual rule file so inlineFiles can read it
+	ruleDir := filepath.Join(dir, ".agents", "rules")
+	if err := os.MkdirAll(ruleDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ruleDir, "general.md"), []byte("# General\n\nAlways read before writing.\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	tr := &translators.CodexTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if err != nil {
+		t.Fatalf("AGENTS.md not created: %v", err)
+	}
+	if !strings.Contains(string(data), "Always read before writing") {
+		t.Error("AGENTS.md should contain inlined rule content")
+	}
+}
+
+func TestCodexInlineNotAtFile(t *testing.T) {
+	dir := t.TempDir()
+	tr := &translators.CodexTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, "AGENTS.md"))
+	if strings.Contains(string(data), "@.agents/") {
+		t.Error("AGENTS.md should not use @file imports — Codex inlines content")
+	}
+}
+
+func TestCodexTOMLGenerated(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	cfg.MCP.Servers["shell"] = config.MCPServer{
+		Command: "npx",
+		Args:    []string{"-y", "@some/mcp-server"},
+	}
+
+	tr := &translators.CodexTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".codex", "config.toml"))
+	if err != nil {
+		t.Fatalf(".codex/config.toml not created: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "[mcp.servers.shell]") {
+		t.Error(".codex/config.toml should contain [mcp.servers.shell] entry")
+	}
+	if !strings.Contains(content, `command = "npx"`) {
+		t.Error(".codex/config.toml should contain command field")
+	}
+}
+
+func TestCodexNoTOMLWithoutMCP(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	// No MCP servers
+
+	tr := &translators.CodexTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := os.Stat(filepath.Join(dir, ".codex", "config.toml")); err == nil {
+		t.Error(".codex/config.toml should not be created when no MCP servers are configured")
+	}
+}
+
+func TestRegistryIncludesGeminiAndCodex(t *testing.T) {
+	for _, name := range []string{"gemini", "codex"} {
+		if _, err := translators.Get(name); err != nil {
+			t.Errorf("Get(%q) failed: %v", name, err)
+		}
 	}
 }

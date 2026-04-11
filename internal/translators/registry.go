@@ -14,6 +14,8 @@ func All() []Syncer {
 		&CopilotTranslator{},
 		&ClineTranslator{},
 		&AiderTranslator{},
+		&GeminiTranslator{},
+		&CodexTranslator{},
 	}
 }
 
