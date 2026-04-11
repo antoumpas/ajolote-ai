@@ -42,7 +42,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create config scaffold
-	cfg := config.DefaultConfig(filepath.Base(projectRoot))
+	cfg := config.DefaultConfig()
 
 	// Detect any existing tool configs and import from them before saving
 	imported := importFromExistingTools(projectRoot, cfg)
@@ -52,6 +52,20 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	printOK(".agents/config.json")
 	printImportSummary(imported)
+
+	// Seed rules files
+	rulesDir := filepath.Join(projectRoot, ".agents", "rules")
+	if err := os.MkdirAll(rulesDir, 0o755); err != nil {
+		return err
+	}
+	if err := seedFile(filepath.Join(rulesDir, "general.md"), config.GeneralRulesContent); err != nil {
+		return err
+	}
+	printOK(".agents/rules/general.md")
+	if err := seedFile(filepath.Join(rulesDir, "code-style.md"), config.CodeStyleRulesContent); err != nil {
+		return err
+	}
+	printOK(".agents/rules/code-style.md")
 
 	// Seed skill files
 	skillsDir := filepath.Join(projectRoot, ".agents", "skills")

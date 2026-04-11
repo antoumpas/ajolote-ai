@@ -11,12 +11,7 @@ import (
 )
 
 func testConfig() *config.Config {
-	cfg := config.DefaultConfig("test-app")
-	cfg.Project.Language = "Go"
-	cfg.Project.Stack = "Go / Gin / PostgreSQL"
-	cfg.Project.TestRunner = "go test"
-	cfg.Rules.General = []string{"Read before writing."}
-	return cfg
+	return config.DefaultConfig()
 }
 
 // seedCommand writes a command file into .agents/commands/ under dir.
@@ -83,11 +78,11 @@ func TestClaudeTranslatorContent(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
 	content := string(data)
 
-	if !strings.Contains(content, "test-app") {
-		t.Error("CLAUDE.md should contain project name")
+	if !strings.Contains(content, ".agents/rules/general.md") {
+		t.Error("CLAUDE.md should reference rules files")
 	}
-	if !strings.Contains(content, "Read before writing.") {
-		t.Error("CLAUDE.md should contain rules")
+	if !strings.Contains(content, ".agents/skills/git.md") {
+		t.Error("CLAUDE.md should reference skill files")
 	}
 }
 
