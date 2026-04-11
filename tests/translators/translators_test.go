@@ -78,11 +78,82 @@ func TestClaudeTranslatorContent(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
 	content := string(data)
 
+	// Claude Code uses @file import syntax
+	if !strings.Contains(content, "@.agents/rules/general.md") {
+		t.Error("CLAUDE.md should use @file import syntax for rules")
+	}
+	if !strings.Contains(content, "@.agents/skills/git.md") {
+		t.Error("CLAUDE.md should use @file import syntax for skills")
+	}
+	// Must NOT contain bullet-list references
+	if strings.Contains(content, "- `.agents/") {
+		t.Error("CLAUDE.md should not use bullet-list file references")
+	}
+}
+
+func TestInlineToolsEmbedContent(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create the referenced files so inlineFiles can read them
+	os.MkdirAll(filepath.Join(dir, ".agents", "rules"), 0o755)
+	os.MkdirAll(filepath.Join(dir, ".agents", "skills"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".agents/rules/general.md"), []byte("# General Rules\n\nAlways test your code."), 0o644)
+	os.WriteFile(filepath.Join(dir, ".agents/rules/code-style.md"), []byte("# Code Style\n\nMatch the surrounding style."), 0o644)
+	os.WriteFile(filepath.Join(dir, ".agents/skills/git.md"), []byte("# Git\n\nUse feature branches."), 0o644)
+	os.WriteFile(filepath.Join(dir, ".agents/skills/testing.md"), []byte("# Testing\n\nWrite tests first."), 0o644)
+
+	cfg := testConfig()
+
+	for _, tc := range []struct {
+		name    string
+		tr      translators.Syncer
+		outFile string
+	}{
+		{"copilot", &translators.CopilotTranslator{}, ".github/copilot-instructions.md"},
+		{"windsurf", &translators.WindsurfTranslator{}, ".windsurf/rules/agents.md"},
+		{"cline", &translators.ClineTranslator{}, ".clinerules"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := tc.tr.Generate(cfg, dir); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(filepath.Join(dir, tc.outFile))
+			if err != nil {
+				t.Fatalf("output file %s not found: %v", tc.outFile, err)
+			}
+			content := string(data)
+			if !strings.Contains(content, "Always test your code.") {
+				t.Errorf("%s: expected rule content to be inlined, got:\n%s", tc.name, content)
+			}
+			if !strings.Contains(content, "Use feature branches.") {
+				t.Errorf("%s: expected skill content to be inlined, got:\n%s", tc.name, content)
+			}
+			// Must NOT contain raw bullet-list path references
+			if strings.Contains(content, "- `.agents/") {
+				t.Errorf("%s: should not contain bullet-list file references", tc.name)
+			}
+		})
+	}
+}
+
+func TestAiderUsesReadList(t *testing.T) {
+	dir := t.TempDir()
+	tr := &translators.AiderTranslator{}
+	if err := tr.Generate(testConfig(), dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".aider.conf.yml"))
+	content := string(data)
+
+	if !strings.Contains(content, "read:") {
+		t.Error(".aider.conf.yml should contain a read: list")
+	}
 	if !strings.Contains(content, ".agents/rules/general.md") {
-		t.Error("CLAUDE.md should reference rules files")
+		t.Error(".aider.conf.yml read: list should include rules files")
 	}
 	if !strings.Contains(content, ".agents/skills/git.md") {
-		t.Error("CLAUDE.md should reference skill files")
+		t.Error(".aider.conf.yml read: list should include skills files")
 	}
 }
 
