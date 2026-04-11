@@ -12,3 +12,11 @@ type Translator interface {
 	// Generate writes tool-specific files under projectRoot.
 	Generate(cfg *config.Config, projectRoot string) error
 }
+
+// CommittedOutput is implemented by translators whose output files belong in
+// version control rather than in .gitignore. The canonical example is the
+// agents-md translator, which generates AGENTS.md — the Linux Foundation /
+// AAIF standard that any AI tool can read without ajolote installed.
+type CommittedOutput interface {
+	Committed() bool
+}

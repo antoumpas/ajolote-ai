@@ -262,6 +262,10 @@ func seedFile(path, content string) error {
 func ignoreAllTools(projectRoot string) error {
 	var entries []string
 	for _, t := range translators.All() {
+		// Skip translators whose outputs are committed to git (e.g. agents-md → AGENTS.md)
+		if co, ok := t.(translators.CommittedOutput); ok && co.Committed() {
+			continue
+		}
 		entries = append(entries, t.OutputFiles()...)
 	}
 	return gitignore.Update(projectRoot, entries)
