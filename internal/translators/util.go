@@ -10,6 +10,97 @@ import (
 	"github.com/ajolote-ai/ajolote/internal/config"
 )
 
+// mcpServerJSON is the tool-facing MCP server representation.
+// It omits ajolote-only fields (Scope) that must not appear in generated tool configs.
+type mcpServerJSON struct {
+	Command     string            `json:"command,omitempty"`
+	Args        []string          `json:"args,omitempty"`
+	Env         map[string]string `json:"env,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Transport   string            `json:"transport,omitempty"`
+	URL         string            `json:"url,omitempty"`
+}
+
+func toMCPJSON(srv config.MCPServer) mcpServerJSON {
+	return mcpServerJSON{
+		Command:     srv.Command,
+		Args:        srv.Args,
+		Env:         srv.Env,
+		Description: srv.Description,
+		Transport:   srv.Transport,
+		URL:         srv.URL,
+	}
+}
+
+// projectScopedServers returns servers whose scope is "" or "project".
+func projectScopedServers(servers map[string]config.MCPServer) map[string]config.MCPServer {
+	out := map[string]config.MCPServer{}
+	for name, srv := range servers {
+		if srv.Scope == "" || srv.Scope == "project" {
+			out[name] = srv
+		}
+	}
+	return out
+}
+
+// userScopedServers returns servers whose scope is "user".
+func userScopedServers(servers map[string]config.MCPServer) map[string]config.MCPServer {
+	out := map[string]config.MCPServer{}
+	for name, srv := range servers {
+		if srv.Scope == "user" {
+			out[name] = srv
+		}
+	}
+	return out
+}
+
+// mergeUserMCPConfig reads an existing {"mcpServers":{...}} JSON file at path,
+// adds any servers not already present, and writes back only if changed.
+// Creates the file (and parent dirs) if it doesn't exist. Never removes existing servers.
+func mergeUserMCPConfig(path string, servers map[string]config.MCPServer) error {
+	if len(servers) == 0 {
+		return nil
+	}
+
+	existing := map[string]json.RawMessage{}
+	if data, err := os.ReadFile(path); err == nil {
+		var wrapper struct {
+			MCPServers map[string]json.RawMessage `json:"mcpServers"`
+		}
+		if json.Unmarshal(data, &wrapper) == nil && wrapper.MCPServers != nil {
+			existing = wrapper.MCPServers
+		}
+	}
+
+	changed := false
+	for name, srv := range servers {
+		if _, ok := existing[name]; ok {
+			continue // already present — don't overwrite
+		}
+		b, err := json.Marshal(toMCPJSON(srv))
+		if err != nil {
+			return err
+		}
+		existing[name] = json.RawMessage(b)
+		changed = true
+	}
+	if !changed {
+		return nil
+	}
+
+	type out struct {
+		MCPServers map[string]json.RawMessage `json:"mcpServers"`
+	}
+	data, err := json.MarshalIndent(out{MCPServers: existing}, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0o644)
+}
+
 // writeFile writes content to path (relative to projectRoot), creating dirs as needed.
 func writeFile(projectRoot, relPath, content string) error {
 	full := filepath.Join(projectRoot, relPath)

@@ -27,6 +27,16 @@ func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) erro
 	if err := writeFile(projectRoot, ".claude/settings.json", t.renderSettings(cfg)); err != nil {
 		return fmt.Errorf("claude settings: %w", err)
 	}
+	// Write user-scoped servers to ~/.claude.json (merged, never overwrites existing)
+	if userServers := userScopedServers(cfg.MCP.Servers); len(userServers) > 0 {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("resolving home directory: %w", err)
+		}
+		if err := mergeUserMCPConfig(filepath.Join(home, ".claude.json"), userServers); err != nil {
+			return fmt.Errorf("writing user MCP config (~/.claude.json): %w", err)
+		}
+	}
 	if err := writeFile(projectRoot, ".claude/commands/ajolote-sync.md", t.renderSlashCommand()); err != nil {
 		return fmt.Errorf("claude slash command: %w", err)
 	}
@@ -128,12 +138,13 @@ func (t *ClaudeTranslator) renderCLAUDEmd(cfg *config.Config) string {
 
 func (t *ClaudeTranslator) renderSettings(cfg *config.Config) string {
 	type settings struct {
-		MCPServers map[string]config.MCPServer `json:"mcpServers"`
+		MCPServers map[string]mcpServerJSON `json:"mcpServers"`
 	}
 
-	s := settings{MCPServers: cfg.MCP.Servers}
-	if s.MCPServers == nil {
-		s.MCPServers = map[string]config.MCPServer{}
+	project := projectScopedServers(cfg.MCP.Servers)
+	s := settings{MCPServers: make(map[string]mcpServerJSON, len(project))}
+	for name, srv := range project {
+		s.MCPServers[name] = toMCPJSON(srv)
 	}
 
 	data, _ := json.MarshalIndent(s, "", "  ")

@@ -76,10 +76,26 @@ Rules always flow **config → tool** only. `.agents/config.json` is the authori
   // MCP servers shared across all tools that support MCP
   "mcp": {
     "servers": {
+      // Committed to git — all team members get this server
       "filesystem": {
         "command": "npx",
         "args": ["-y", "@modelcontextprotocol/server-filesystem", "."],
-        "description": "Read/write access to this repo"
+        "description": "Read/write access to this repo",
+        "scope": "project"  // default — written to .claude/settings.json, .cursor/mcp.json, etc.
+      },
+      // HTTP-transport server (no command/args)
+      "remote-api": {
+        "transport": "http",
+        "url": "https://mcp.example.com/api",
+        "description": "Remote MCP server over HTTP"
+      },
+      // User-scoped — written to ~/.claude.json and ~/.cursor/mcp.json, never committed
+      "personal-figma": {
+        "command": "npx",
+        "args": ["-y", "figma-mcp"],
+        "env": { "FIGMA_TOKEN": "${FIGMA_TOKEN}" },
+        "description": "Figma MCP with personal access token",
+        "scope": "user"
       },
       "github": {
         "command": "npx",
@@ -136,10 +152,13 @@ Rules always flow **config → tool** only. `.agents/config.json` is the authori
 | Field | Type | Description |
 |---|---|---|
 | `mcp.servers` | object | MCP server definitions — translated to each tool's MCP config format |
-| `mcp.servers.<name>.command` | string | Binary to run (e.g. `npx`, `node`) |
+| `mcp.servers.<name>.command` | string | Binary to run (e.g. `npx`, `node`) — omit for HTTP/SSE servers |
 | `mcp.servers.<name>.args` | string[] | Arguments passed to the command |
 | `mcp.servers.<name>.env` | object | Environment variables (use `${VAR}` to reference shell env) |
 | `mcp.servers.<name>.description` | string | Human-readable description (optional) |
+| `mcp.servers.<name>.transport` | string | `"stdio"` (default) \| `"http"` \| `"sse"` |
+| `mcp.servers.<name>.url` | string | Server URL — required for `http`/`sse` transport |
+| `mcp.servers.<name>.scope` | string | `"project"` (default) — written to project config files and committed; `"user"` — written to `~/.claude.json` / `~/.cursor/mcp.json` and never committed |
 | `rules` | string[] | Paths to rule files — always applied to every file and context |
 | `scoped_rules` | object[] | Rules that only activate for files matching specific glob patterns |
 | `scoped_rules[].name` | string | Identifier used as the output filename (e.g. `frontend`) |

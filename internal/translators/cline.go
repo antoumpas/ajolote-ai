@@ -128,12 +128,13 @@ func (t *ClineTranslator) renderRules(cfg *config.Config, projectRoot string) st
 
 func (t *ClineTranslator) renderMCP(cfg *config.Config) string {
 	type mcpFile struct {
-		MCPServers map[string]config.MCPServer `json:"mcpServers"`
+		MCPServers map[string]mcpServerJSON `json:"mcpServers"`
 	}
 
-	m := mcpFile{MCPServers: cfg.MCP.Servers}
-	if m.MCPServers == nil {
-		m.MCPServers = map[string]config.MCPServer{}
+	project := projectScopedServers(cfg.MCP.Servers)
+	m := mcpFile{MCPServers: make(map[string]mcpServerJSON, len(project))}
+	for name, srv := range project {
+		m.MCPServers[name] = toMCPJSON(srv)
 	}
 
 	data, _ := json.MarshalIndent(m, "", "  ")

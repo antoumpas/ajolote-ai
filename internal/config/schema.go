@@ -23,8 +23,11 @@ type MCP struct {
 }
 
 type MCPServer struct {
-	Command     string            `json:"command"`
-	Args        []string          `json:"args"`
+	Command     string            `json:"command,omitempty"`
+	Args        []string          `json:"args,omitempty"`
 	Env         map[string]string `json:"env,omitempty"`
 	Description string            `json:"description,omitempty"`
+	Transport   string            `json:"transport,omitempty"` // "stdio" (default) | "http" | "sse"
+	URL         string            `json:"url,omitempty"`       // for http/sse transport
+	Scope       string            `json:"scope,omitempty"`     // "project" (default) | "user"
 }

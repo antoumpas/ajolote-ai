@@ -39,6 +39,16 @@ func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) erro
 			return fmt.Errorf("cursor command %s: %w", cmd.Name, err)
 		}
 	}
+	// Write user-scoped servers to ~/.cursor/mcp.json (merged, never overwrites existing)
+	if userServers := userScopedServers(cfg.MCP.Servers); len(userServers) > 0 {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return fmt.Errorf("resolving home directory: %w", err)
+		}
+		if err := mergeUserMCPConfig(filepath.Join(home, ".cursor", "mcp.json"), userServers); err != nil {
+			return fmt.Errorf("writing user MCP config (~/.cursor/mcp.json): %w", err)
+		}
+	}
 	for _, sr := range cfg.ScopedRules {
 		data, _ := os.ReadFile(filepath.Join(projectRoot, sr.Path))
 		content := fmt.Sprintf("---\ndescription: %s\nglobs: %s\nalwaysApply: false\n---\n\n%s\n",
@@ -127,12 +137,13 @@ func (t *CursorTranslator) renderRules(cfg *config.Config) string {
 
 func (t *CursorTranslator) renderMCP(cfg *config.Config) string {
 	type mcpFile struct {
-		MCPServers map[string]config.MCPServer `json:"mcpServers"`
+		MCPServers map[string]mcpServerJSON `json:"mcpServers"`
 	}
 
-	m := mcpFile{MCPServers: cfg.MCP.Servers}
-	if m.MCPServers == nil {
-		m.MCPServers = map[string]config.MCPServer{}
+	project := projectScopedServers(cfg.MCP.Servers)
+	m := mcpFile{MCPServers: make(map[string]mcpServerJSON, len(project))}
+	for name, srv := range project {
+		m.MCPServers[name] = toMCPJSON(srv)
 	}
 
 	data, _ := json.MarshalIndent(m, "", "  ")
