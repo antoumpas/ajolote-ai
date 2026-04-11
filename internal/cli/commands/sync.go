@@ -99,6 +99,19 @@ func runSync(cmd *cobra.Command, args []string) error {
 				fmt.Printf("  %s .agents/commands/%s.md  %s\n", up("↑"), cmd.Name, added("(new command added)"))
 				configChanged = true
 			}
+			for name, content := range result.NewRuleFiles {
+				path := filepath.Join(projectRoot, ".agents", "rules", name)
+				if _, err := os.Stat(path); os.IsNotExist(err) {
+					if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+						return fmt.Errorf("creating .agents/rules/: %w", err)
+					}
+					if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+						return fmt.Errorf("writing .agents/rules/%s: %w", name, err)
+					}
+					fmt.Printf("  %s .agents/rules/%s  %s\n", up("↑"), name, added("(new rule file imported)"))
+					configChanged = true
+				}
+			}
 		}
 
 		// ↓ Export

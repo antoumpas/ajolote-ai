@@ -42,7 +42,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 
 	// Create config scaffold
-	cfg := config.DefaultConfig(filepath.Base(projectRoot))
+	cfg := config.DefaultConfig()
 
 	// Detect any existing tool configs and import from them before saving
 	imported := importFromExistingTools(projectRoot, cfg)
@@ -52,6 +52,24 @@ func runInit(cmd *cobra.Command, args []string) error {
 	}
 	printOK(".agents/config.json")
 	printImportSummary(imported)
+
+	// Seed rules files — prefer content imported from an existing tool config
+	rulesDir := filepath.Join(projectRoot, ".agents", "rules")
+	if err := os.MkdirAll(rulesDir, 0o755); err != nil {
+		return err
+	}
+	generalContent := config.GeneralRulesContent
+	if c, ok := imported.ruleFiles["general.md"]; ok {
+		generalContent = c
+	}
+	if err := seedFile(filepath.Join(rulesDir, "general.md"), generalContent); err != nil {
+		return err
+	}
+	printOK(".agents/rules/general.md")
+	if err := seedFile(filepath.Join(rulesDir, "code-style.md"), config.CodeStyleRulesContent); err != nil {
+		return err
+	}
+	printOK(".agents/rules/code-style.md")
 
 	// Seed skill files
 	skillsDir := filepath.Join(projectRoot, ".agents", "skills")
@@ -134,15 +152,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 // toolImport holds what was found for a single tool during init.
 type toolImport struct {
-	name     string
-	nServers int
-	commands []translators.Command
+	name       string
+	nServers   int
+	commands   []translators.Command
+	nRuleFiles int
 }
 
 // initImports is the aggregated result of scanning all tools.
 type initImports struct {
-	byTool   []toolImport
-	commands []translators.Command // deduplicated across tools
+	byTool    []toolImport
+	commands  []translators.Command // deduplicated across tools
+	ruleFiles map[string]string     // filename → content, from first tool that has them
 }
 
 // importFromExistingTools scans all translators for existing configs and merges
@@ -179,7 +199,13 @@ func importFromExistingTools(projectRoot string, cfg *config.Config) initImports
 			}
 		}
 
-		if ti.nServers > 0 || len(ti.commands) > 0 {
+		// Collect rule files from the first tool that has them
+		if result.ruleFiles == nil && len(ir.NewRuleFiles) > 0 {
+			result.ruleFiles = ir.NewRuleFiles
+			ti.nRuleFiles = len(ir.NewRuleFiles)
+		}
+
+		if ti.nServers > 0 || len(ti.commands) > 0 || ti.nRuleFiles > 0 {
 			result.byTool = append(result.byTool, ti)
 		}
 	}
@@ -209,6 +235,16 @@ func printImportSummary(imported initImports) {
 				parts += "1 command"
 			} else {
 				parts += fmt.Sprintf("%d commands", len(ti.commands))
+			}
+		}
+		if ti.nRuleFiles > 0 {
+			if parts != "" {
+				parts += ", "
+			}
+			if ti.nRuleFiles == 1 {
+				parts += "1 rule file"
+			} else {
+				parts += fmt.Sprintf("%d rule files", ti.nRuleFiles)
 			}
 		}
 		fmt.Printf("    %s %s — %s imported\n", up("↑"), ti.name, parts)

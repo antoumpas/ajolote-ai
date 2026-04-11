@@ -35,7 +35,8 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	green := color.New(color.FgGreen).SprintFunc()
 	yellow := color.New(color.FgYellow).SprintFunc()
 
-	fmt.Printf("\n%s: %s\n\n", bold("Project"), cfg.Project.Name)
+	_ = cfg // loaded for validation; project name no longer in config
+	fmt.Printf("\n")
 	fmt.Println(bold("Tool configs (local, gitignored):"))
 	fmt.Println()
 

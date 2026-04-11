@@ -1,43 +1,14 @@
 package config
 
 // DefaultConfig returns a scaffold Config for a new project.
-// projectName is typically the base name of the project directory.
-func DefaultConfig(projectName string) *Config {
+func DefaultConfig() *Config {
 	return &Config{
-		Project: Project{
-			Name:       projectName,
-			Stack:      "",
-			RepoType:   "",
-			Language:   "",
-			TestRunner: "",
-		},
 		MCP: MCP{
 			Servers: map[string]MCPServer{},
 		},
-		Rules: Rules{
-			General: []string{
-				"Read before writing. Always read the relevant files before modifying them.",
-				"Minimal diffs. Change only what is necessary to satisfy the task.",
-				"No unsolicited refactors. Do not rename or restructure code unless explicitly asked.",
-				"No hallucinated APIs. Check installed versions before using a library function.",
-			},
-			CodeStyle: []string{
-				"Follow the existing conventions in each file. When in doubt, run the linter.",
-				"Do not introduce new dependencies without a comment explaining why.",
-				"Match the surrounding indentation, quote style, and semicolon usage exactly.",
-			},
-			Testing: []string{
-				"Every new function or module must have at least one accompanying test.",
-				"Do not delete or weaken existing tests.",
-			},
-			Security: []string{
-				"Never hard-code secrets, tokens, or credentials — use environment variables.",
-				"Never log sensitive user data.",
-			},
-			Commits: []string{
-				"Write commit messages in the imperative mood: Add X, Fix Y, Remove Z.",
-				"One logical change per commit.",
-			},
+		Rules: []string{
+			".agents/rules/general.md",
+			".agents/rules/code-style.md",
 		},
 		Skills: []string{
 			".agents/skills/git.md",
@@ -54,6 +25,38 @@ func DefaultConfig(projectName string) *Config {
 		},
 	}
 }
+
+// GeneralRulesContent is seeded into .agents/rules/general.md.
+const GeneralRulesContent = `# General Rules
+
+- Read before writing. Always read the relevant files before modifying them.
+- Minimal diffs. Change only what is necessary to satisfy the task.
+- No unsolicited refactors. Do not rename or restructure code unless explicitly asked.
+- No hallucinated APIs. Check installed versions before using a library function.
+
+## Testing
+
+- Every new function or module must have at least one accompanying test.
+- Do not delete or weaken existing tests.
+
+## Security
+
+- Never hard-code secrets, tokens, or credentials — use environment variables.
+- Never log sensitive user data.
+
+## Commits
+
+- Write commit messages in the imperative mood: Add X, Fix Y, Remove Z.
+- One logical change per commit.
+`
+
+// CodeStyleRulesContent is seeded into .agents/rules/code-style.md.
+const CodeStyleRulesContent = `# Code Style
+
+- Follow the existing conventions in each file. When in doubt, run the linter.
+- Do not introduce new dependencies without a comment explaining why.
+- Match the surrounding indentation, quote style, and semicolon usage exactly.
+`
 
 // GitSkillContent is the default content seeded into .agents/skills/git.md.
 const GitSkillContent = `# Git Workflow

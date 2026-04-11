@@ -11,8 +11,8 @@ import (
 func TestSaveAndLoad(t *testing.T) {
 	dir := t.TempDir()
 
-	cfg := config.DefaultConfig("test-project")
-	cfg.Project.Language = "Go"
+	cfg := config.DefaultConfig()
+	cfg.MCP.Servers["test"] = config.MCPServer{Command: "npx", Args: []string{"test"}}
 
 	if err := config.Save(dir, cfg); err != nil {
 		t.Fatalf("Save: %v", err)
@@ -27,11 +27,11 @@ func TestSaveAndLoad(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if loaded.Project.Name != "test-project" {
-		t.Errorf("got name %q, want %q", loaded.Project.Name, "test-project")
+	if _, ok := loaded.MCP.Servers["test"]; !ok {
+		t.Error("expected MCP server 'test' to survive save/load round-trip")
 	}
-	if loaded.Project.Language != "Go" {
-		t.Errorf("got language %q, want %q", loaded.Project.Language, "Go")
+	if len(loaded.Rules) == 0 {
+		t.Error("expected Rules to be non-empty after round-trip")
 	}
 }
 
@@ -49,7 +49,7 @@ func TestExists(t *testing.T) {
 		t.Fatal("should not exist yet")
 	}
 
-	if err := config.Save(dir, config.DefaultConfig("test")); err != nil {
+	if err := config.Save(dir, config.DefaultConfig()); err != nil {
 		t.Fatal(err)
 	}
 

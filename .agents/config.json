@@ -1,0 +1,7 @@
+{
+  "mcp": { "servers": {} },
+  "rules": [".agents/rules/development.md"],
+  "skills": [],
+  "personas": [],
+  "context": []
+}
