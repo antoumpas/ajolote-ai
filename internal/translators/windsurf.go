@@ -52,6 +52,14 @@ func (t *WindsurfTranslator) Generate(cfg *config.Config, projectRoot string) er
 			return fmt.Errorf("windsurf command %s: %w", cmd.Name, err)
 		}
 	}
+	for _, sr := range cfg.ScopedRules {
+		data, _ := os.ReadFile(filepath.Join(projectRoot, sr.Path))
+		content := fmt.Sprintf("---\ndescription: %s\nglobs: %s\nalwaysApply: false\n---\n\n%s\n",
+			sr.Name, strings.Join(sr.Globs, ", "), strings.TrimSpace(string(data)))
+		if err := writeFile(projectRoot, ".windsurf/rules/"+sr.Name+".md", content); err != nil {
+			return fmt.Errorf("windsurf scoped rule %s: %w", sr.Name, err)
+		}
+	}
 	return nil
 }
 

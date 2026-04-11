@@ -14,7 +14,7 @@ type CopilotTranslator struct{}
 func (t *CopilotTranslator) Name() string { return "copilot" }
 
 func (t *CopilotTranslator) OutputFiles() []string {
-	return []string{".github/copilot-instructions.md"}
+	return []string{".github/copilot-instructions.md", ".github/instructions/"}
 }
 
 func (t *CopilotTranslator) Import(projectRoot string) (*ImportResult, error) {
@@ -28,12 +28,50 @@ func (t *CopilotTranslator) Import(projectRoot string) (*ImportResult, error) {
 		}
 	}
 
+	// Import scoped rules from .github/instructions/*.instructions.md
+	instrDir := filepath.Join(projectRoot, ".github", "instructions")
+	entries, _ := os.ReadDir(instrDir)
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".instructions.md") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(instrDir, e.Name()))
+		if err != nil || isAjoloteGenerated(string(data)) {
+			continue
+		}
+		fields, _ := parseFrontmatterFull(string(data))
+		applyTo := fields["applyTo"]
+		if applyTo == "" {
+			continue
+		}
+		name := strings.TrimSuffix(e.Name(), ".instructions.md")
+		var globs []string
+		for _, g := range strings.Split(applyTo, ",") {
+			if g = strings.TrimSpace(g); g != "" {
+				globs = append(globs, g)
+			}
+		}
+		result.NewScopedRules = append(result.NewScopedRules, config.ScopedRule{
+			Name:  name,
+			Globs: globs,
+			Path:  ".agents/rules/" + name + ".md",
+		})
+	}
+
 	return result, nil
 }
 
 func (t *CopilotTranslator) Generate(cfg *config.Config, projectRoot string) error {
 	if err := writeFile(projectRoot, ".github/copilot-instructions.md", t.renderInstructions(cfg, projectRoot)); err != nil {
 		return fmt.Errorf("copilot: %w", err)
+	}
+	for _, sr := range cfg.ScopedRules {
+		data, _ := os.ReadFile(filepath.Join(projectRoot, sr.Path))
+		content := fmt.Sprintf("---\napplyTo: %q\n---\n\n%s\n",
+			strings.Join(sr.Globs, ","), strings.TrimSpace(string(data)))
+		if err := writeFile(projectRoot, ".github/instructions/"+sr.Name+".instructions.md", content); err != nil {
+			return fmt.Errorf("copilot scoped rule %s: %w", sr.Name, err)
+		}
 	}
 	return nil
 }

@@ -16,7 +16,8 @@ func (t *ClaudeTranslator) Name() string { return "claude" }
 
 func (t *ClaudeTranslator) OutputFiles() []string {
 	// .claude/commands/ covers ajolote-sync.md and all generated command files
-	return []string{"CLAUDE.md", ".claude/settings.json", ".claude/commands/"}
+	// .claude/rules/ covers scoped rule files
+	return []string{"CLAUDE.md", ".claude/settings.json", ".claude/commands/", ".claude/rules/"}
 }
 
 func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -36,6 +37,13 @@ func (t *ClaudeTranslator) Generate(cfg *config.Config, projectRoot string) erro
 	for _, cmd := range cmds {
 		if err := writeFile(projectRoot, ".claude/commands/"+cmd.Name+".md", cmd.Content); err != nil {
 			return fmt.Errorf("claude command %s: %w", cmd.Name, err)
+		}
+	}
+	for _, sr := range cfg.ScopedRules {
+		content := fmt.Sprintf("---\ndescription: %s\nglobs: %s\n---\n\n@%s\n",
+			sr.Name, strings.Join(sr.Globs, ", "), sr.Path)
+		if err := writeFile(projectRoot, ".claude/rules/"+sr.Name+".md", content); err != nil {
+			return fmt.Errorf("claude scoped rule %s: %w", sr.Name, err)
 		}
 	}
 	return nil

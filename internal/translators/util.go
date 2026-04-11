@@ -74,6 +74,27 @@ func readCommands(projectRoot string) ([]Command, error) {
 	return commands, nil
 }
 
+// parseFrontmatterFull parses a --- YAML frontmatter block and returns all key→value
+// pairs plus the body content after the closing ---. Returns an empty map and the
+// full raw string as body when no frontmatter is present.
+func parseFrontmatterFull(raw string) (fields map[string]string, body string) {
+	fields = map[string]string{}
+	if !strings.HasPrefix(raw, "---\n") {
+		return fields, strings.TrimSpace(raw)
+	}
+	rest := raw[4:]
+	end := strings.Index(rest, "\n---\n")
+	if end == -1 {
+		return fields, strings.TrimSpace(raw)
+	}
+	for _, line := range strings.Split(rest[:end], "\n") {
+		if k, v, ok := strings.Cut(line, ":"); ok {
+			fields[strings.TrimSpace(k)] = strings.Trim(strings.TrimSpace(v), `"`)
+		}
+	}
+	return fields, strings.TrimSpace(rest[end+5:])
+}
+
 // parseFrontmatter splits a markdown file into its description (from --- frontmatter)
 // and body content. If no frontmatter is present, the whole string is the body.
 func parseFrontmatter(raw string) (description, body string) {
@@ -167,6 +188,47 @@ func inlineFiles(heading, projectRoot string, paths []string) string {
 		sb.WriteString("\n\n")
 	}
 	return sb.String()
+}
+
+// importScopedRulesFromMDC scans dir for .mdc files that have a globs: frontmatter field
+// and are not ajolote-generated. Returns them as ScopedRule values with the body as content.
+// skip is the same set used for command imports (e.g. "agents", "ajolote-sync").
+func importScopedRulesFromMDC(dir string, skip map[string]bool) []config.ScopedRule {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var rules []config.ScopedRule
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".mdc") {
+			continue
+		}
+		name := strings.TrimSuffix(e.Name(), ".mdc")
+		if skip[name] {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		if err != nil || isAjoloteGenerated(string(data)) {
+			continue
+		}
+		fields, _ := parseFrontmatterFull(string(data))
+		globStr := fields["globs"]
+		if globStr == "" {
+			continue // not a scoped rule
+		}
+		var globs []string
+		for _, g := range strings.Split(globStr, ",") {
+			if g = strings.TrimSpace(g); g != "" {
+				globs = append(globs, g)
+			}
+		}
+		rules = append(rules, config.ScopedRule{
+			Name:  name,
+			Globs: globs,
+			Path:  ".agents/rules/" + name + ".md",
+		})
+	}
+	return rules
 }
 
 // isAjoloteGenerated reports whether content was produced by ajolote (not user-authored).

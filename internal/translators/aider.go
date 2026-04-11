@@ -39,6 +39,9 @@ func (t *AiderTranslator) renderConf(cfg *config.Config) string {
 	readFiles = append(readFiles, cfg.Skills...)
 	readFiles = append(readFiles, cfg.Personas...)
 	readFiles = append(readFiles, cfg.Context...)
+	for _, sr := range cfg.ScopedRules {
+		readFiles = append(readFiles, sr.Path)
+	}
 
 	if len(readFiles) > 0 {
 		sb.WriteString("\n# Files to include as context\nread:\n")

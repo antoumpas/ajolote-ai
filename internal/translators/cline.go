@@ -39,6 +39,13 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 			return fmt.Errorf("cline command %s: %w", cmd.Name, err)
 		}
 	}
+	for _, sr := range cfg.ScopedRules {
+		data, _ := os.ReadFile(filepath.Join(projectRoot, sr.Path))
+		content := "# " + sr.Name + "\n\n" + strings.TrimSpace(string(data)) + "\n"
+		if err := writeFile(projectRoot, ".roo/rules/"+sr.Name+".md", content); err != nil {
+			return fmt.Errorf("cline scoped rule %s: %w", sr.Name, err)
+		}
+	}
 	return nil
 }
 

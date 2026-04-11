@@ -90,10 +90,24 @@ Rules always flow **config → tool** only. `.agents/config.json` is the authori
     }
   },
 
-  // Rule files — paths to .md files agents read as ground rules
+  // Rule files — paths to .md files agents read as ground rules (always applied)
   "rules": [
     ".agents/rules/general.md",
     ".agents/rules/code-style.md"
+  ],
+
+  // Scoped rules — only applied when the agent is working on matching files
+  "scoped_rules": [
+    {
+      "name": "frontend",
+      "globs": ["**/*.tsx", "**/*.css"],
+      "path": ".agents/rules/frontend.md"
+    },
+    {
+      "name": "api",
+      "globs": ["src/app/api/**/*.ts"],
+      "path": ".agents/rules/api.md"
+    }
   ],
 
   // Skill files — reusable task instructions in .agents/skills/
@@ -126,7 +140,11 @@ Rules always flow **config → tool** only. `.agents/config.json` is the authori
 | `mcp.servers.<name>.args` | string[] | Arguments passed to the command |
 | `mcp.servers.<name>.env` | object | Environment variables (use `${VAR}` to reference shell env) |
 | `mcp.servers.<name>.description` | string | Human-readable description (optional) |
-| `rules` | string[] | Paths to rule files — agent ground rules and conventions |
+| `rules` | string[] | Paths to rule files — always applied to every file and context |
+| `scoped_rules` | object[] | Rules that only activate for files matching specific glob patterns |
+| `scoped_rules[].name` | string | Identifier used as the output filename (e.g. `frontend`) |
+| `scoped_rules[].globs` | string[] | Glob patterns that trigger this rule (e.g. `**/*.tsx`) |
+| `scoped_rules[].path` | string | Path to the `.md` rule file in `.agents/rules/` |
 | `skills` | string[] | Paths to skill files — reusable task instructions |
 | `personas` | string[] | Paths to persona files — role-based agent behaviours |
 | `context` | string[] | Paths to context files — background knowledge about the project |
@@ -368,6 +386,21 @@ All files in `.agents/` are committed to git and shared across the team. Agents 
 ```
 
 `ajolote init` seeds all directories with starter templates. Fill them in with your project's real information and commit — that's where the value is.
+
+### Scoped Rules
+
+Rules that only activate for files matching specific glob patterns. Each tool renders them in its native format:
+
+| Tool | Output | Format |
+|---|---|---|
+| Cursor | `.cursor/rules/<name>.mdc` | `globs:` frontmatter — Cursor applies the rule only to matching files |
+| Copilot | `.github/instructions/<name>.instructions.md` | `applyTo:` frontmatter — VS Code Copilot's per-file instruction system |
+| Claude Code | `.claude/rules/<name>.md` | `globs:` frontmatter + `@file` import |
+| Windsurf | `.windsurf/rules/<name>.md` | `globs:` frontmatter |
+| Cline | `.roo/rules/<name>.md` | Inlined content |
+| Aider | `.aider.conf.yml` `read:` list | No glob support — always included |
+
+**Two-way sync** — `ajolote sync cursor` or `ajolote sync copilot` imports user-authored scoped rules from `.cursor/rules/*.mdc` (by detecting a `globs:` field) or `.github/instructions/*.instructions.md` (by detecting `applyTo:`), writes the body to `.agents/rules/<name>.md`, and adds the entry to `config.json`.
 
 ### Rules
 

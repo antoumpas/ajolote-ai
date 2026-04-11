@@ -112,6 +112,33 @@ func runSync(cmd *cobra.Command, args []string) error {
 					configChanged = true
 				}
 			}
+			for _, sr := range result.NewScopedRules {
+				// Check if already present in config (match by name)
+				exists := false
+				for _, existing := range cfg.ScopedRules {
+					if existing.Name == sr.Name {
+						exists = true
+						break
+					}
+				}
+				if exists {
+					continue
+				}
+				// Write the rule content file if not already there
+				rulePath := filepath.Join(projectRoot, sr.Path)
+				if _, err := os.Stat(rulePath); os.IsNotExist(err) {
+					if err := os.MkdirAll(filepath.Dir(rulePath), 0o755); err != nil {
+						return fmt.Errorf("creating .agents/rules/: %w", err)
+					}
+					// Content was already written by the tool's import; create a stub if absent
+					if err := os.WriteFile(rulePath, []byte("# "+sr.Name+"\n"), 0o644); err != nil {
+						return fmt.Errorf("writing %s: %w", sr.Path, err)
+					}
+				}
+				cfg.ScopedRules = append(cfg.ScopedRules, sr)
+				fmt.Printf("  %s %s  %s\n", up("↑"), sr.Path, added("(new scoped rule imported)"))
+				configChanged = true
+			}
 		}
 
 		// ↓ Export

@@ -26,6 +26,13 @@ func seedCommand(t *testing.T, dir, name, content string) {
 	}
 }
 
+// scopedOnlyDirs are output directories only created when scoped_rules are configured.
+// They are absent from a minimal test config and must not fail TestAllTranslatorsGenerate.
+var scopedOnlyDirs = map[string]bool{
+	".claude/rules/":         true,
+	".github/instructions/":  true,
+}
+
 func TestAllTranslatorsGenerate(t *testing.T) {
 	for _, tr := range translators.All() {
 		tr := tr
@@ -37,6 +44,9 @@ func TestAllTranslatorsGenerate(t *testing.T) {
 			for _, f := range tr.OutputFiles() {
 				full := filepath.Join(dir, f)
 				if strings.HasSuffix(f, "/") {
+					if scopedOnlyDirs[f] {
+						continue // only created when scoped_rules are present
+					}
 					// Directory pattern — verify at least one file was written inside
 					entries, err := os.ReadDir(full)
 					if err != nil {
@@ -133,6 +143,223 @@ func TestInlineToolsEmbedContent(t *testing.T) {
 				t.Errorf("%s: should not contain bullet-list file references", tc.name)
 			}
 		})
+	}
+}
+
+// --- Scoped rules tests ---
+
+func testScopedConfig(t *testing.T, dir string) *config.Config {
+	t.Helper()
+	os.MkdirAll(filepath.Join(dir, ".agents", "rules"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".agents/rules/frontend.md"), []byte("# Frontend Rules\n\nUse React hooks."), 0o644)
+
+	cfg := testConfig()
+	cfg.ScopedRules = []config.ScopedRule{
+		{Name: "frontend", Globs: []string{"**/*.tsx", "**/*.css"}, Path: ".agents/rules/frontend.md"},
+	}
+	return cfg
+}
+
+func TestCursorScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testScopedConfig(t, dir)
+
+	tr := &translators.CursorTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".cursor/rules/frontend.mdc"))
+	if err != nil {
+		t.Fatalf(".cursor/rules/frontend.mdc not generated: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "globs: **/*.tsx, **/*.css") {
+		t.Error(".cursor/rules/frontend.mdc should contain globs frontmatter")
+	}
+	if !strings.Contains(content, "alwaysApply: false") {
+		t.Error(".cursor/rules/frontend.mdc should have alwaysApply: false")
+	}
+	if !strings.Contains(content, "Use React hooks.") {
+		t.Error(".cursor/rules/frontend.mdc should contain inlined rule content")
+	}
+}
+
+func TestCopilotScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testScopedConfig(t, dir)
+
+	tr := &translators.CopilotTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".github/instructions/frontend.instructions.md"))
+	if err != nil {
+		t.Fatalf(".github/instructions/frontend.instructions.md not generated: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "applyTo:") {
+		t.Error("copilot instructions file should contain applyTo: frontmatter")
+	}
+	if !strings.Contains(content, "**/*.tsx") {
+		t.Error("copilot instructions file should contain glob patterns")
+	}
+	if !strings.Contains(content, "Use React hooks.") {
+		t.Error("copilot instructions file should contain inlined rule content")
+	}
+}
+
+func TestClaudeScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testScopedConfig(t, dir)
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".claude/rules/frontend.md"))
+	if err != nil {
+		t.Fatalf(".claude/rules/frontend.md not generated: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "globs: **/*.tsx, **/*.css") {
+		t.Error(".claude/rules/frontend.md should contain globs frontmatter")
+	}
+	if !strings.Contains(content, "@.agents/rules/frontend.md") {
+		t.Error(".claude/rules/frontend.md should use @import syntax")
+	}
+}
+
+func TestWindsurfScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testScopedConfig(t, dir)
+
+	tr := &translators.WindsurfTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".windsurf/rules/frontend.md"))
+	if err != nil {
+		t.Fatalf(".windsurf/rules/frontend.md not generated: %v", err)
+	}
+	content := string(data)
+	if !strings.Contains(content, "globs: **/*.tsx, **/*.css") {
+		t.Error(".windsurf/rules/frontend.md should contain globs frontmatter")
+	}
+	if !strings.Contains(content, "Use React hooks.") {
+		t.Error(".windsurf/rules/frontend.md should contain inlined rule content")
+	}
+}
+
+func TestClineScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testScopedConfig(t, dir)
+
+	tr := &translators.ClineTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".roo/rules/frontend.md"))
+	if err != nil {
+		t.Fatalf(".roo/rules/frontend.md not generated: %v", err)
+	}
+	if !strings.Contains(string(data), "Use React hooks.") {
+		t.Error(".roo/rules/frontend.md should contain inlined rule content")
+	}
+}
+
+func TestAiderScopedRulesInReadList(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testScopedConfig(t, dir)
+
+	tr := &translators.AiderTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".aider.conf.yml"))
+	if !strings.Contains(string(data), ".agents/rules/frontend.md") {
+		t.Error(".aider.conf.yml should include scoped rule path in read: list")
+	}
+}
+
+func TestCursorImportScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".cursor", "rules"), 0o755)
+
+	// User-authored scoped rule — has globs, not ajolote-generated
+	os.WriteFile(filepath.Join(dir, ".cursor/rules/frontend.mdc"),
+		[]byte("---\ndescription: frontend\nglobs: **/*.tsx, **/*.css\nalwaysApply: false\n---\n\nUse React hooks.\n"), 0o644)
+	// Global rule — has no globs, should be skipped as scoped rule
+	os.WriteFile(filepath.Join(dir, ".cursor/rules/other.mdc"),
+		[]byte("---\ndescription: other\nalwaysApply: false\n---\n\nSome rule.\n"), 0o644)
+
+	tr := &translators.CursorTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.NewScopedRules) != 1 {
+		t.Fatalf("expected 1 scoped rule, got %d", len(result.NewScopedRules))
+	}
+	sr := result.NewScopedRules[0]
+	if sr.Name != "frontend" {
+		t.Errorf("expected name 'frontend', got %q", sr.Name)
+	}
+	if len(sr.Globs) != 2 {
+		t.Errorf("expected 2 globs, got %v", sr.Globs)
+	}
+}
+
+func TestCopilotImportScopedRules(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".github", "instructions"), 0o755)
+
+	os.WriteFile(filepath.Join(dir, ".github/instructions/frontend.instructions.md"),
+		[]byte("---\napplyTo: \"**/*.tsx,**/*.css\"\n---\n\nUse React hooks.\n"), 0o644)
+
+	tr := &translators.CopilotTranslator{}
+	result, err := tr.Import(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(result.NewScopedRules) != 1 {
+		t.Fatalf("expected 1 scoped rule, got %d", len(result.NewScopedRules))
+	}
+	sr := result.NewScopedRules[0]
+	if sr.Name != "frontend" {
+		t.Errorf("expected name 'frontend', got %q", sr.Name)
+	}
+	if len(sr.Globs) != 2 {
+		t.Errorf("expected 2 globs, got %v", sr.Globs)
+	}
+}
+
+func TestNoScopedRulesNoExtraFiles(t *testing.T) {
+	// Configs without scoped_rules must not generate any extra files
+	dir := t.TempDir()
+	cfg := testConfig() // no ScopedRules
+
+	for _, tr := range translators.All() {
+		if err := tr.Generate(cfg, dir); err != nil {
+			t.Fatalf("%s Generate: %v", tr.Name(), err)
+		}
+	}
+
+	for _, path := range []string{
+		".cursor/rules/frontend.mdc",
+		".github/instructions/frontend.instructions.md",
+		".claude/rules/frontend.md",
+		".windsurf/rules/frontend.md",
+		".roo/rules/frontend.md",
+	} {
+		if _, err := os.Stat(filepath.Join(dir, path)); err == nil {
+			t.Errorf("scoped rule file %s should not exist when config has no scoped_rules", path)
+		}
 	}
 }
 

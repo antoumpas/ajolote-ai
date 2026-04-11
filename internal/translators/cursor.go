@@ -39,6 +39,14 @@ func (t *CursorTranslator) Generate(cfg *config.Config, projectRoot string) erro
 			return fmt.Errorf("cursor command %s: %w", cmd.Name, err)
 		}
 	}
+	for _, sr := range cfg.ScopedRules {
+		data, _ := os.ReadFile(filepath.Join(projectRoot, sr.Path))
+		content := fmt.Sprintf("---\ndescription: %s\nglobs: %s\nalwaysApply: false\n---\n\n%s\n",
+			sr.Name, strings.Join(sr.Globs, ", "), strings.TrimSpace(string(data)))
+		if err := writeFile(projectRoot, ".cursor/rules/"+sr.Name+".mdc", content); err != nil {
+			return fmt.Errorf("cursor scoped rule %s: %w", sr.Name, err)
+		}
+	}
 	return nil
 }
 
@@ -77,6 +85,9 @@ func (t *CursorTranslator) Import(projectRoot string) (*ImportResult, error) {
 			result.NewRuleFiles = map[string]string{"general.md": stripFrontmatter(raw)}
 		}
 	}
+
+	// Import scoped rules — .mdc files with globs: in frontmatter that aren't ajolote-generated
+	result.NewScopedRules = importScopedRulesFromMDC(filepath.Join(cursorDir, "rules"), skip)
 
 	return result, nil
 }
