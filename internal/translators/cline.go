@@ -16,7 +16,7 @@ func (t *ClineTranslator) Name() string { return "cline" }
 
 func (t *ClineTranslator) OutputFiles() []string {
 	// .roo/ covers mcp.json, rules/, and all generated command files
-	return []string{".clinerules", ".roo/"}
+	return []string{".clinerules", ".roo/", ".roomodes"}
 }
 
 func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error {
@@ -45,6 +45,9 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 		if err := writeFile(projectRoot, ".roo/rules/"+sr.Name+".md", content); err != nil {
 			return fmt.Errorf("cline scoped rule %s: %w", sr.Name, err)
 		}
+	}
+	if err := writeFile(projectRoot, ".roomodes", t.renderRoomodes(cfg, projectRoot)); err != nil {
+		return fmt.Errorf("cline roomodes: %w", err)
 	}
 	return nil
 }
@@ -139,4 +142,36 @@ func (t *ClineTranslator) renderMCP(cfg *config.Config) string {
 
 	data, _ := json.MarshalIndent(m, "", "  ")
 	return string(data) + "\n"
+}
+
+func (t *ClineTranslator) renderRoomodes(cfg *config.Config, projectRoot string) string {
+	type rooMode struct {
+		Slug           string   `json:"slug"`
+		Name           string   `json:"name"`
+		RoleDefinition string   `json:"roleDefinition"`
+		Groups         []string `json:"groups"`
+		Source         string   `json:"source"`
+	}
+	type roomodesFile struct {
+		CustomModes []rooMode `json:"customModes"`
+	}
+
+	modes := make([]rooMode, 0, len(cfg.Personas))
+	for _, p := range cfg.Personas {
+		data, err := os.ReadFile(filepath.Join(projectRoot, p.Path))
+		if err != nil {
+			continue // skip personas whose files can't be read
+		}
+		slug := agentName(p.Path)
+		modes = append(modes, rooMode{
+			Slug:           slug,
+			Name:           toTitle(slug),
+			RoleDefinition: strings.TrimSpace(string(data)),
+			Groups:         []string{"read", "edit", "browser", "command", "mcp"},
+			Source:         "project",
+		})
+	}
+
+	out, _ := json.MarshalIndent(roomodesFile{CustomModes: modes}, "", "  ")
+	return string(out) + "\n"
 }

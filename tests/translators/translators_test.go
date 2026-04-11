@@ -487,6 +487,89 @@ func TestCommandsGeneratedForCline(t *testing.T) {
 	}
 }
 
+func TestRoomodesGenerated(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+
+	// Seed persona files so renderRoomodes can read them
+	seedPersonaFile(t, dir, ".agents/personas/reviewer.md",
+		"# Persona: Code Reviewer\n\nReview code carefully.\n")
+	seedPersonaFile(t, dir, ".agents/personas/architect.md",
+		"# Persona: Architect\n\nThink in trade-offs.\n")
+
+	tr := &translators.ClineTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".roomodes"))
+	if err != nil {
+		t.Fatalf(".roomodes not generated: %v", err)
+	}
+	content := string(data)
+
+	if !strings.Contains(content, `"slug": "reviewer"`) {
+		t.Error(".roomodes should contain reviewer slug")
+	}
+	if !strings.Contains(content, `"name": "Reviewer"`) {
+		t.Error(".roomodes should contain title-cased name")
+	}
+	if !strings.Contains(content, "Review code carefully") {
+		t.Error(".roomodes should embed persona file content as roleDefinition")
+	}
+	if !strings.Contains(content, `"source": "project"`) {
+		t.Error(".roomodes should set source to project")
+	}
+	if !strings.Contains(content, `"read"`) || !strings.Contains(content, `"edit"`) {
+		t.Error(".roomodes should include tool groups")
+	}
+	// Both personas should appear
+	if !strings.Contains(content, `"slug": "architect"`) {
+		t.Error(".roomodes should contain architect slug")
+	}
+}
+
+func TestRoomodesEmptyWithoutPersonas(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	cfg.Personas = nil
+
+	tr := &translators.ClineTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := os.ReadFile(filepath.Join(dir, ".roomodes"))
+	if err != nil {
+		t.Fatalf(".roomodes not generated: %v", err)
+	}
+	if !strings.Contains(string(data), `"customModes": []`) {
+		t.Errorf(".roomodes with no personas should have empty customModes, got:\n%s", string(data))
+	}
+}
+
+func TestRoomodesSkipsMissingPersonaFile(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+	// Only seed one of the two persona files
+	seedPersonaFile(t, dir, ".agents/personas/reviewer.md", "# Reviewer\n\nReview.\n")
+	// .agents/personas/architect.md intentionally missing
+
+	tr := &translators.ClineTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	data, _ := os.ReadFile(filepath.Join(dir, ".roomodes"))
+	content := string(data)
+	if !strings.Contains(content, `"slug": "reviewer"`) {
+		t.Error("reviewer should appear when its file exists")
+	}
+	if strings.Contains(content, `"slug": "architect"`) {
+		t.Error("architect should be skipped when its file is missing")
+	}
+}
+
 func TestCommandsGeneratedForWindsurf(t *testing.T) {
 	dir := t.TempDir()
 	seedCommand(t, dir, "deploy", "---\ndescription: Deploy to staging\n---\n\nRun deploy.sh\n")

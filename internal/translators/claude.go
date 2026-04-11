@@ -173,24 +173,6 @@ func (t *ClaudeTranslator) renderAgentFile(persona config.Persona, projectRoot s
 	return sb.String()
 }
 
-// agentName returns the filename stem from a persona path.
-// ".agents/personas/code-reviewer.md" → "code-reviewer"
-func agentName(path string) string {
-	base := filepath.Base(path)
-	return strings.TrimSuffix(base, filepath.Ext(base))
-}
-
-// toTitle converts a slug to Title Case. "code-reviewer" → "Code Reviewer"
-func toTitle(name string) string {
-	words := strings.FieldsFunc(name, func(r rune) bool { return r == '-' || r == '_' })
-	for i, w := range words {
-		if len(w) > 0 {
-			words[i] = strings.ToUpper(w[:1]) + w[1:]
-		}
-	}
-	return strings.Join(words, " ")
-}
-
 // extractFirstParagraph returns the first non-blank, non-heading line of a markdown file.
 // Used to derive an auto-invocation description when none is explicitly set.
 func extractFirstParagraph(path string) string {

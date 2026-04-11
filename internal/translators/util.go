@@ -341,6 +341,25 @@ func stripFrontmatter(raw string) string {
 	return strings.TrimSpace(rest[end+5:])
 }
 
+// agentName returns the filename stem from a persona path.
+// ".agents/personas/code-reviewer.md" → "code-reviewer"
+func agentName(path string) string {
+	base := filepath.Base(path)
+	return strings.TrimSuffix(base, filepath.Ext(base))
+}
+
+// toTitle converts a hyphen/underscore-separated slug to Title Case.
+// "code-reviewer" → "Code Reviewer"
+func toTitle(name string) string {
+	words := strings.FieldsFunc(name, func(r rune) bool { return r == '-' || r == '_' })
+	for i, w := range words {
+		if len(w) > 0 {
+			words[i] = strings.ToUpper(w[:1]) + w[1:]
+		}
+	}
+	return strings.Join(words, " ")
+}
+
 // personaPaths extracts the Path field from each Persona, returning a plain []string
 // of file paths suitable for use with atFileList, inlineFiles, and similar helpers.
 func personaPaths(personas []config.Persona) []string {
