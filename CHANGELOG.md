@@ -1,3 +1,9 @@
+## v0.6.0 — 2026-04-11
+
+- Add license file (fe4fc0b)
+- Replace structured project/rules objects with markdown file references (9dce954)
+- chore: update CHANGELOG for v0.4.0 (fe48c68)
+
 ## v0.4.0 — 2026-04-10
 
 - Add regression tests for Import-without-MCP-file bug (9c6c385)
