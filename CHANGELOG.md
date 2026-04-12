@@ -1,3 +1,23 @@
+## v0.7.0 — 2026-04-12
+
+- fix: restore cwd after setupClaudeProject to prevent Windows CI failures (8054c6f)
+- docs: document validate, diff commands and add per-tool sections for Gemini, Codex, AGENTS.md (47cdb6c)
+- docs: update README to reflect all supported tools (9d137b8)
+- feat: Windows support (94d359b)
+- docs: document MCP env var substitution feature (7bb7a62)
+- feat: expand ${ENV_VAR} placeholders in MCP server secrets at generation time (2ffbc82)
+- feat: add agents-md translator for AGENTS.md standard (Linux Foundation / AAIF) (1a399e9)
+- feat: add Gemini CLI and Codex CLI translators (68938e1)
+- docs: restructure README for better adoption (8de2d29)
+- feat: add ajolote diff command (fc6c939)
+- feat: add ajolote validate command (6fad004)
+- feat: generate .roomodes from personas for Roo Code custom modes (67c1745)
+- feat: generate .claude/agents/ from personas with claude: block (baa7b2b)
+- feat: add MCP server scoping (project vs user) and HTTP transport support (5e8bbc1)
+- feat: add glob-scoped rules to config.json (50bf565)
+- feat: per-tool content rendering strategy (inline vs @import) (7460c0e)
+- chore: update CHANGELOG for v0.6.0 (670c99e)
+
 ## v0.6.0 — 2026-04-11
 
 - Add license file (fe4fc0b)
