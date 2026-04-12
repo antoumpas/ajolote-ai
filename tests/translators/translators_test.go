@@ -1033,6 +1033,143 @@ func TestMergeUserMCPConfig(t *testing.T) {
 	}
 }
 
+// --- Env-var substitution tests ---
+
+func TestEnvVarSubstitutionInMCPEnv(t *testing.T) {
+	t.Setenv("MY_API_KEY", "super-secret-value")
+
+	dir := t.TempDir()
+	cfg := &config.Config{
+		MCP: config.MCP{
+			Servers: map[string]config.MCPServer{
+				"mymcp": {
+					Command: "npx",
+					Args:    []string{"-y", "foo"},
+					Env:     map[string]string{"API_KEY": "${MY_API_KEY}"},
+				},
+			},
+		},
+	}
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, _ := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if !strings.Contains(string(settings), "super-secret-value") {
+		t.Error("generated settings.json should contain the resolved env var value")
+	}
+	if strings.Contains(string(settings), "${MY_API_KEY}") {
+		t.Error("generated settings.json should not contain the raw placeholder")
+	}
+}
+
+func TestEnvVarSubstitutionUnsetLeavesMPlaceholder(t *testing.T) {
+	// Ensure the variable is NOT set
+	t.Setenv("DEFINITELY_NOT_SET_VAR_XYZ", "")
+	os.Unsetenv("DEFINITELY_NOT_SET_VAR_XYZ")
+
+	dir := t.TempDir()
+	cfg := &config.Config{
+		MCP: config.MCP{
+			Servers: map[string]config.MCPServer{
+				"mymcp": {
+					Command: "npx",
+					Env:     map[string]string{"TOKEN": "${DEFINITELY_NOT_SET_VAR_XYZ}"},
+				},
+			},
+		},
+	}
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, _ := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if !strings.Contains(string(settings), "${DEFINITELY_NOT_SET_VAR_XYZ}") {
+		t.Error("unresolved placeholder should be preserved as-is in generated output")
+	}
+}
+
+func TestEnvVarSubstitutionInURL(t *testing.T) {
+	t.Setenv("MCP_TOKEN", "tok-abc123")
+
+	dir := t.TempDir()
+	cfg := &config.Config{
+		MCP: config.MCP{
+			Servers: map[string]config.MCPServer{
+				"remote": {
+					Transport: "http",
+					URL:       "https://mcp.example.com/api?token=${MCP_TOKEN}",
+				},
+			},
+		},
+	}
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	settings, _ := os.ReadFile(filepath.Join(dir, ".claude", "settings.json"))
+	if !strings.Contains(string(settings), "tok-abc123") {
+		t.Error("URL with env var should have the token resolved in generated output")
+	}
+}
+
+func TestEnvVarSubstitutionInCodexTOML(t *testing.T) {
+	t.Setenv("CODEX_API_KEY", "codex-secret-999")
+
+	dir := t.TempDir()
+	cfg := &config.Config{
+		MCP: config.MCP{
+			Servers: map[string]config.MCPServer{
+				"mymcp": {
+					Command: "npx",
+					Env:     map[string]string{"API_KEY": "${CODEX_API_KEY}"},
+				},
+			},
+		},
+	}
+
+	tr := &translators.CodexTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	toml, _ := os.ReadFile(filepath.Join(dir, ".codex", "config.toml"))
+	if !strings.Contains(string(toml), "codex-secret-999") {
+		t.Error(".codex/config.toml should contain the resolved env var value")
+	}
+}
+
+func TestEnvVarConfigNotMutated(t *testing.T) {
+	// Substitution must happen only at write-time; the in-memory config must
+	// retain the original ${...} placeholder so it is never written to .agents/.
+	t.Setenv("PERSIST_CHECK_VAR", "resolved")
+
+	dir := t.TempDir()
+	original := "${PERSIST_CHECK_VAR}"
+	cfg := &config.Config{
+		MCP: config.MCP{
+			Servers: map[string]config.MCPServer{
+				"srv": {Command: "cmd", Env: map[string]string{"KEY": original}},
+			},
+		},
+	}
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatal(err)
+	}
+
+	if cfg.MCP.Servers["srv"].Env["KEY"] != original {
+		t.Error("Generate must not mutate the in-memory config — placeholder must survive")
+	}
+}
+
 // seedPersonaFile writes a minimal persona markdown file to dir at the given path.
 func seedPersonaFile(t *testing.T, dir, relPath, content string) {
 	t.Helper()

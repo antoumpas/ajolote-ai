@@ -77,7 +77,7 @@ func (t *CodexTranslator) renderTOML(servers map[string]config.MCPServer) string
 			sb.WriteString(fmt.Sprintf("transport = %q\n", srv.Transport))
 		}
 		if srv.URL != "" {
-			sb.WriteString(fmt.Sprintf("url = %q\n", srv.URL))
+			sb.WriteString(fmt.Sprintf("url = %q\n", expandEnv(srv.URL)))
 		}
 		if len(srv.Args) > 0 {
 			quoted := make([]string, len(srv.Args))
@@ -94,7 +94,7 @@ func (t *CodexTranslator) renderTOML(servers map[string]config.MCPServer) string
 			}
 			sort.Strings(envKeys)
 			for _, k := range envKeys {
-				sb.WriteString(fmt.Sprintf("%s = %q\n", k, srv.Env[k]))
+				sb.WriteString(fmt.Sprintf("%s = %q\n", k, expandEnv(srv.Env[k])))
 			}
 		}
 	}

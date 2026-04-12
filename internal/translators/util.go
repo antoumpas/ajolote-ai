@@ -22,14 +22,34 @@ type mcpServerJSON struct {
 }
 
 func toMCPJSON(srv config.MCPServer) mcpServerJSON {
+	var env map[string]string
+	if len(srv.Env) > 0 {
+		env = make(map[string]string, len(srv.Env))
+		for k, v := range srv.Env {
+			env[k] = expandEnv(v)
+		}
+	}
 	return mcpServerJSON{
 		Command:     srv.Command,
 		Args:        srv.Args,
-		Env:         srv.Env,
+		Env:         env,
 		Description: srv.Description,
 		Transport:   srv.Transport,
-		URL:         srv.URL,
+		URL:         expandEnv(srv.URL),
 	}
+}
+
+// expandEnv substitutes ${VAR} and $VAR references with their environment values.
+// Variables that are not set in the environment are left as-is (not replaced with
+// an empty string), so the placeholder is visible in generated output and the team
+// knows a variable needs to be set.
+func expandEnv(s string) string {
+	return os.Expand(s, func(key string) string {
+		if val, ok := os.LookupEnv(key); ok {
+			return val
+		}
+		return "${" + key + "}"
+	})
 }
 
 // projectScopedServers returns servers whose scope is "" or "project".
