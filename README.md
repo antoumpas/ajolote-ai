@@ -27,9 +27,22 @@ Everyone edits the `.agents/` files. Each developer runs `ajolote use <tool>` on
 
 ## Install
 
+**macOS / Linux**
 ```sh
 curl -fsSL https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.sh | sh
 ```
+
+**Windows (PowerShell)**
+```powershell
+irm https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.ps1 | iex
+```
+
+**Any platform — go install**
+```sh
+go install github.com/ajolote-ai/ajolote/cmd/ajolote@latest
+```
+
+Or download a binary for your platform from the [releases page](https://github.com/antoumpas/ajolote-ai/releases).
 
 ## Usage
 

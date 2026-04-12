@@ -93,6 +93,7 @@ func runDiff(cmd *cobra.Command, args []string) error {
 				return err
 			}
 			relPath, _ := filepath.Rel(tmpDir, tmpPath)
+			relPath = filepath.ToSlash(relPath) // normalise to forward slashes on Windows
 			realPath := filepath.Join(projectRoot, relPath)
 
 			generated, err := os.ReadFile(tmpPath)

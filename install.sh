@@ -16,6 +16,15 @@ ARCH="$(uname -m)"
 case "$OS" in
   Linux)   os="linux" ;;
   Darwin)  os="darwin" ;;
+  MSYS*|MINGW*|CYGWIN*)
+    echo "Windows detected. Use the PowerShell installer instead:"
+    echo ""
+    echo "  irm https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.ps1 | iex"
+    echo ""
+    echo "Or download the .zip directly from:"
+    echo "  https://github.com/antoumpas/ajolote-ai/releases"
+    exit 0
+    ;;
   *)       echo "Unsupported OS: $OS" >&2; exit 1 ;;
 esac
 
