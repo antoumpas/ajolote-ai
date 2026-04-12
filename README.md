@@ -205,6 +205,40 @@ The obvious alternative — symlinking a shared `AGENTS.md` into `CLAUDE.md`, `.
 | `personas[].claude.description` | string | Auto-invocation trigger text; derived from first paragraph of persona file if omitted |
 | `context` | string[] | Paths to context files — background knowledge about the project |
 
+### MCP secrets and environment variables
+
+MCP server configs often contain API tokens and other credentials. Writing them directly into `.agents/config.json` would commit them to git. Instead, use `${VAR_NAME}` placeholders — ajolote resolves them from the shell environment at generation time and writes the real values only into the gitignored tool configs.
+
+```jsonc
+{
+  "mcp": {
+    "servers": {
+      "github": {
+        "command": "npx",
+        "args": ["-y", "@modelcontextprotocol/server-github"],
+        "env": {
+          "GITHUB_TOKEN": "${GITHUB_TOKEN}"  // ← resolved from shell, never committed
+        }
+      },
+      "remote-api": {
+        "transport": "http",
+        "url": "https://mcp.example.com/api?key=${MCP_API_KEY}"  // ← works in URLs too
+      }
+    }
+  }
+}
+```
+
+**How it works:**
+
+1. `.agents/config.json` stores `${GITHUB_TOKEN}` — safe to commit
+2. Each developer sets the variable in their shell (e.g. via `.env`, `direnv`, or their shell profile)
+3. `ajolote use <tool>` or `ajolote sync` reads the variable and writes the resolved value into the gitignored tool config (`.claude/settings.json`, `.cursor/mcp.json`, etc.)
+
+**Unset variables are preserved as-is** — if `${GITHUB_TOKEN}` is not set in the environment, the literal string `${GITHUB_TOKEN}` is written to the generated file. This makes misconfiguration visible rather than silently writing an empty string.
+
+The in-memory config is never mutated — placeholders are never written back to `.agents/config.json`.
+
 ---
 
 ## What each tool gets
