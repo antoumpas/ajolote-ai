@@ -14,7 +14,7 @@ func runInit(t *testing.T, dir string) error {
 	t.Helper()
 	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		orig = os.TempDir() // fallback: previous test may have left a deleted cwd
 	}
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)

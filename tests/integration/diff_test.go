@@ -15,7 +15,7 @@ func runDiff(t *testing.T, dir string, args ...string) error {
 	t.Helper()
 	orig, err := os.Getwd()
 	if err != nil {
-		t.Fatal(err)
+		orig = os.TempDir() // fallback: previous test may have left a deleted cwd
 	}
 	if err := os.Chdir(dir); err != nil {
 		t.Fatal(err)
@@ -30,7 +30,7 @@ func runDiff(t *testing.T, dir string, args ...string) error {
 // setupClaudeProject creates a minimal ajolote project with Claude output already generated.
 func setupClaudeProject(t *testing.T) string {
 	t.Helper()
-	dir := t.TempDir()
+	dir := t.TempDir() // cleanup registered first → runs LAST (LIFO)
 
 	cfg := &config.Config{
 		MCP:   config.MCP{Servers: map[string]config.MCPServer{}},
@@ -38,6 +38,19 @@ func setupClaudeProject(t *testing.T) string {
 	}
 	writeConfig(t, dir, cfg)
 	writeFile(t, dir, ".agents/rules/general.md", "# General\n\nAlways read before writing.\n")
+
+	// Register cwd restore AFTER t.TempDir() so it runs FIRST (LIFO),
+	// before the temp dir is deleted. Without this, deleting the cwd dir
+	// causes os.Getwd() to fail on Windows in subsequent tests.
+	orig, err := os.Getwd()
+	if err != nil {
+		orig = os.TempDir()
+	}
+	t.Cleanup(func() {
+		if err := os.Chdir(orig); err != nil {
+			_ = os.Chdir(os.TempDir())
+		}
+	})
 
 	// Generate Claude output so the translator is considered "active"
 	if err := os.Chdir(dir); err != nil {
