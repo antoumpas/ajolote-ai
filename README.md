@@ -4,7 +4,7 @@ One shared AI agent config for teams where developers use different tools.
 
 You commit `.agents/` — a single directory of rules, skills, personas, and MCP server definitions. Every developer runs `ajolote use <their-tool>` and gets a freshly generated config in their tool's native format. No more per-tool config files committed to git, no more "it works on my Cursor but not your Claude Code."
 
-Works with any language or framework. Supports Claude Code, Cursor, Windsurf, GitHub Copilot, Cline / Roo Code, and Aider.
+Works with any language or framework. Supports Claude Code, Cursor, Windsurf, GitHub Copilot, Cline / Roo Code, Aider, Gemini CLI, and Codex CLI. Also generates a committed `AGENTS.md` (Linux Foundation / AAIF standard) that any compatible tool can read without ajolote installed.
 
 **When it helps most:**
 - Your team uses different tools (Alice is on Claude Code, Bob is on Cursor, CI runs Copilot)
@@ -21,7 +21,8 @@ Works with any language or framework. Supports Claude Code, Cursor, Windsurf, Gi
 | `.agents/skills/*.md` — reusable instructions | `.windsurf/rules/agents.md` |
 | `.agents/personas/*.md` — role behaviours | `.github/copilot-instructions.md` |
 | `.agents/context/*.md` — project knowledge | `.clinerules`, `.roo/mcp.json`, `.roomodes` |
-| `.agents/commands/*.md` — shared slash commands | `.aider.conf.yml` |
+| `.agents/commands/*.md` — shared slash commands | `.aider.conf.yml`, `GEMINI.md` |
+| `AGENTS.md` — AAIF standard (any tool reads it) | `.codex/config.toml` |
 
 Everyone edits the `.agents/` files. Each developer runs `ajolote use <tool>` once to generate their own tool config from the shared source of truth.
 
@@ -51,7 +52,7 @@ Or download a binary for your platform from the [releases page](https://github.c
 ajolote init
 
 # Developer — after cloning, generate config for your tool of choice
-ajolote use claude   # or cursor, windsurf, copilot, cline, aider
+ajolote use claude   # or cursor, windsurf, copilot, cline, aider, gemini, codex, agents-md
 
 # Two-way sync — pull in changes from your tool, push updated config back out
 ajolote sync           # syncs all tools whose files are present
@@ -84,6 +85,9 @@ ajolote status
 | windsurf | — | `.windsurf/rules/agents.md`, `.windsurf/workflows/` |
 | copilot | — | `.github/copilot-instructions.md` |
 | aider | — | `.aider.conf.yml` |
+| gemini | — | `GEMINI.md` |
+| codex | existing `AGENTS.md` | `.codex/config.toml` |
+| agents-md | existing `AGENTS.md` | `AGENTS.md` ✅ committed |
 
 Rules always flow **config → tool** only. `.agents/config.json` is the authority for rules; the tool files are never trusted for rules.
 
@@ -261,9 +265,11 @@ Each tool gets a rendering strategy appropriate for its capabilities:
 | Tool | Strategy |
 |---|---|
 | Claude Code | `@file` imports — Claude Code follows references natively |
+| Gemini CLI | `@file` imports — Gemini CLI follows references natively |
 | Cursor | File path references — Cursor follows them in `.mdc` files |
-| Copilot, Windsurf, Cline | Inline — actual file content embedded directly |
+| Copilot, Windsurf, Cline, Codex | Inline — actual file content embedded directly |
 | Aider | `read:` list — Aider includes files as context natively |
+| AGENTS.md | Inline — committed to git; any AAIF-compatible tool reads it without ajolote |
 
 ### Claude Code — `ajolote use claude`
 
@@ -629,11 +635,14 @@ go tool cover -html=coverage.out
 
 ## Supported tools
 
-| Tool | Config files generated |
-|---|---|
-| [Claude Code](https://claude.ai/code) | `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/` |
-| [Cursor](https://cursor.com) | `.cursor/rules/agents.mdc`, `.cursor/mcp.json`, `.cursor/rules/` |
-| [Windsurf](https://windsurf.com) | `.windsurf/rules/agents.md`, `.windsurf/workflows/` |
-| [GitHub Copilot](https://github.com/features/copilot) | `.github/copilot-instructions.md` |
-| [Cline / Roo Code](https://github.com/cline/cline) | `.clinerules`, `.roo/mcp.json`, `.roo/rules/`, `.roomodes` |
-| [Aider](https://aider.chat) | `.aider.conf.yml` |
+| Tool | Command | Config files generated |
+|---|---|---|
+| [Claude Code](https://claude.ai/code) | `ajolote use claude` | `CLAUDE.md`, `.claude/settings.json`, `.claude/commands/` |
+| [Cursor](https://cursor.com) | `ajolote use cursor` | `.cursor/rules/agents.mdc`, `.cursor/mcp.json`, `.cursor/rules/` |
+| [Windsurf](https://windsurf.com) | `ajolote use windsurf` | `.windsurf/rules/agents.md`, `.windsurf/workflows/` |
+| [GitHub Copilot](https://github.com/features/copilot) | `ajolote use copilot` | `.github/copilot-instructions.md` |
+| [Cline / Roo Code](https://github.com/cline/cline) | `ajolote use cline` | `.clinerules`, `.roo/mcp.json`, `.roo/rules/`, `.roomodes` |
+| [Aider](https://aider.chat) | `ajolote use aider` | `.aider.conf.yml` |
+| [Gemini CLI](https://github.com/google-gemini/gemini-cli) | `ajolote use gemini` | `GEMINI.md` |
+| [Codex CLI](https://github.com/openai/codex) | `ajolote use codex` | `.codex/config.toml` |
+| [AGENTS.md](https://agents.md) (AAIF standard) | `ajolote use agents-md` | `AGENTS.md` — committed to git, readable by any compatible tool |
