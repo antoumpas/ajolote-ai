@@ -1,3 +1,11 @@
+## v0.7.1 — 2026-04-13
+
+- docs: add qa scenarios list (e8a1b40)
+- feat: add --from flag to ajolote init for explicit tool import selection (4de2032)
+- docs: document INSTALL_DIR override for install.sh in README (f9e31bb)
+- fix: inject version at build time via ldflags instead of hardcoding (e992185)
+- chore: update CHANGELOG for v0.7.0 (627c0c9)
+
 ## v0.7.0 — 2026-04-12
 
 - fix: restore cwd after setupClaudeProject to prevent Windows CI failures (8054c6f)
