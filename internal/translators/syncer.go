@@ -16,6 +16,9 @@ type ImportResult struct {
 	// NewScopedRules are glob-scoped rules found in the tool's native scoped-rule files
 	// (e.g. Cursor .mdc with globs:, Copilot .instructions.md) that are not yet in the config.
 	NewScopedRules []config.ScopedRule
+	// ScopedRuleContents maps scoped rule name → body content, so the caller can write
+	// the rule file with real content instead of a placeholder stub.
+	ScopedRuleContents map[string]string
 }
 
 // HasChanges reports whether the import found anything new.

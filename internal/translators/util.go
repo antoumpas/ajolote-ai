@@ -18,7 +18,7 @@ type mcpServerJSON struct {
 	Env         map[string]string `json:"env,omitempty"`
 	Description string            `json:"description,omitempty"`
 	Transport   string            `json:"transport,omitempty"`
-	URL         string            `json:"url,omitempty"`
+	URL         *string           `json:"url,omitempty"`
 }
 
 func toMCPJSON(srv config.MCPServer) mcpServerJSON {
@@ -29,13 +29,21 @@ func toMCPJSON(srv config.MCPServer) mcpServerJSON {
 			env[k] = expandEnv(v)
 		}
 	}
+	// URL: use a pointer so that an empty expansion of a non-empty placeholder
+	// (e.g. ${EMPTY_VAR}="") still emits "url":"" rather than being omitted.
+	// A truly absent URL (stdio server) is represented as nil and omitted.
+	var url *string
+	if srv.URL != "" {
+		expanded := expandEnv(srv.URL)
+		url = &expanded
+	}
 	return mcpServerJSON{
 		Command:     srv.Command,
 		Args:        srv.Args,
 		Env:         env,
 		Description: srv.Description,
 		Transport:   srv.Transport,
-		URL:         expandEnv(srv.URL),
+		URL:         url,
 	}
 }
 
@@ -302,14 +310,16 @@ func inlineFiles(heading, projectRoot string, paths []string) string {
 }
 
 // importScopedRulesFromMDC scans dir for .mdc files that have a globs: frontmatter field
-// and are not ajolote-generated. Returns them as ScopedRule values with the body as content.
+// and are not ajolote-generated. Returns the ScopedRule metadata and a map of
+// name → body content so callers can write the rule file with real content.
 // skip is the same set used for command imports (e.g. "agents", "ajolote-sync").
-func importScopedRulesFromMDC(dir string, skip map[string]bool) []config.ScopedRule {
+func importScopedRulesFromMDC(dir string, skip map[string]bool) ([]config.ScopedRule, map[string]string) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	var rules []config.ScopedRule
+	contents := map[string]string{}
 	for _, e := range entries {
 		if e.IsDir() || !strings.HasSuffix(e.Name(), ".mdc") {
 			continue
@@ -322,7 +332,7 @@ func importScopedRulesFromMDC(dir string, skip map[string]bool) []config.ScopedR
 		if err != nil || isAjoloteGenerated(string(data)) {
 			continue
 		}
-		fields, _ := parseFrontmatterFull(string(data))
+		fields, body := parseFrontmatterFull(string(data))
 		globStr := fields["globs"]
 		if globStr == "" {
 			continue // not a scoped rule
@@ -338,8 +348,9 @@ func importScopedRulesFromMDC(dir string, skip map[string]bool) []config.ScopedR
 			Globs: globs,
 			Path:  ".agents/rules/" + name + ".md",
 		})
+		contents[name] = body
 	}
-	return rules
+	return rules, contents
 }
 
 // isAjoloteGenerated reports whether content was produced by ajolote (not user-authored).

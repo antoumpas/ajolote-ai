@@ -39,7 +39,7 @@ func (t *CopilotTranslator) Import(projectRoot string) (*ImportResult, error) {
 		if err != nil || isAjoloteGenerated(string(data)) {
 			continue
 		}
-		fields, _ := parseFrontmatterFull(string(data))
+		fields, body := parseFrontmatterFull(string(data))
 		applyTo := fields["applyTo"]
 		if applyTo == "" {
 			continue
@@ -56,6 +56,10 @@ func (t *CopilotTranslator) Import(projectRoot string) (*ImportResult, error) {
 			Globs: globs,
 			Path:  ".agents/rules/" + name + ".md",
 		})
+		if result.ScopedRuleContents == nil {
+			result.ScopedRuleContents = map[string]string{}
+		}
+		result.ScopedRuleContents[name] = body
 	}
 
 	return result, nil

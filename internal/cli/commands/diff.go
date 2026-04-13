@@ -76,12 +76,21 @@ func runDiff(cmd *cobra.Command, args []string) error {
 	for _, t := range targets {
 		fmt.Printf("\n%s\n", bold(t.Name()))
 
-		// Generate into a temp directory so we never touch real files
+		// Generate into a temp directory so we never touch real files.
+		// Copy .agents/ into the temp dir first so Generate can read commands,
+		// personas, and other source files via the standard projectRoot paths.
 		tmpDir, err := os.MkdirTemp("", "ajolote-diff-*")
 		if err != nil {
 			return fmt.Errorf("creating temp dir: %w", err)
 		}
 		defer os.RemoveAll(tmpDir)
+
+		agentsDir := filepath.Join(projectRoot, ".agents")
+		if _, err := os.Stat(agentsDir); err == nil {
+			if err := copyDir(agentsDir, filepath.Join(tmpDir, ".agents")); err != nil {
+				return fmt.Errorf("preparing temp dir: %w", err)
+			}
+		}
 
 		if err := t.Generate(cfg, tmpDir); err != nil {
 			return fmt.Errorf("generating %s config: %w", t.Name(), err)
@@ -170,6 +179,25 @@ func printDiffLines(_, content []byte) {
 	for _, line := range strings.Split(strings.TrimRight(string(content), "\n"), "\n") {
 		fmt.Println("     " + color.New(color.FgGreen).Sprint("+"+line))
 	}
+}
+
+// copyDir recursively copies src into dst, creating dst and all subdirectories as needed.
+func copyDir(src, dst string) error {
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(src, path)
+		target := filepath.Join(dst, rel)
+		if info.IsDir() {
+			return os.MkdirAll(target, info.Mode())
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(target, data, info.Mode())
+	})
 }
 
 // ── Unified diff ──────────────────────────────────────────────────────────────

@@ -529,7 +529,7 @@ func TestRoomodesGenerated(t *testing.T) {
 	}
 }
 
-func TestRoomodesEmptyWithoutPersonas(t *testing.T) {
+func TestRoomodesNotCreatedWithoutPersonas(t *testing.T) {
 	dir := t.TempDir()
 	cfg := testConfig()
 	cfg.Personas = nil
@@ -539,12 +539,8 @@ func TestRoomodesEmptyWithoutPersonas(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	data, err := os.ReadFile(filepath.Join(dir, ".roomodes"))
-	if err != nil {
-		t.Fatalf(".roomodes not generated: %v", err)
-	}
-	if !strings.Contains(string(data), `"customModes": []`) {
-		t.Errorf(".roomodes with no personas should have empty customModes, got:\n%s", string(data))
+	if _, err := os.Stat(filepath.Join(dir, ".roomodes")); !os.IsNotExist(err) {
+		t.Error(".roomodes should not be created when personas is empty")
 	}
 }
 

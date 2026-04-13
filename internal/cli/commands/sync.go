@@ -130,8 +130,13 @@ func runSync(cmd *cobra.Command, args []string) error {
 					if err := os.MkdirAll(filepath.Dir(rulePath), 0o755); err != nil {
 						return fmt.Errorf("creating .agents/rules/: %w", err)
 					}
-					// Content was already written by the tool's import; create a stub if absent
-					if err := os.WriteFile(rulePath, []byte("# "+sr.Name+"\n"), 0o644); err != nil {
+					content := result.ScopedRuleContents[sr.Name]
+					if content == "" {
+						content = "# " + sr.Name + "\n"
+					} else {
+						content = content + "\n"
+					}
+					if err := os.WriteFile(rulePath, []byte(content), 0o644); err != nil {
 						return fmt.Errorf("writing %s: %w", sr.Path, err)
 					}
 				}

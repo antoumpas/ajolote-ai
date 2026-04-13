@@ -46,8 +46,10 @@ func (t *ClineTranslator) Generate(cfg *config.Config, projectRoot string) error
 			return fmt.Errorf("cline scoped rule %s: %w", sr.Name, err)
 		}
 	}
-	if err := writeFile(projectRoot, ".roomodes", t.renderRoomodes(cfg, projectRoot)); err != nil {
-		return fmt.Errorf("cline roomodes: %w", err)
+	if len(cfg.Personas) > 0 {
+		if err := writeFile(projectRoot, ".roomodes", t.renderRoomodes(cfg, projectRoot)); err != nil {
+			return fmt.Errorf("cline roomodes: %w", err)
+		}
 	}
 	return nil
 }

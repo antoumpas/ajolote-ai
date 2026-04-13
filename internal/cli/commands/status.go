@@ -41,15 +41,15 @@ func runStatus(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	for _, t := range translators.All() {
-		allPresent := true
+		anyPresent := false
 		for _, f := range t.OutputFiles() {
-			if _, err := os.Stat(filepath.Join(projectRoot, f)); err != nil {
-				allPresent = false
+			if _, err := os.Stat(filepath.Join(projectRoot, f)); err == nil {
+				anyPresent = true
 				break
 			}
 		}
 
-		if allPresent {
+		if anyPresent {
 			fmt.Printf("  %s %-12s\n", green("✔"), t.Name())
 		} else {
 			fmt.Printf("  %s %-12s  %s\n", yellow("○"), t.Name(), yellow("run: ajolote use "+t.Name()))
