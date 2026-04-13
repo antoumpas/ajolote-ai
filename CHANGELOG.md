@@ -1,3 +1,8 @@
+## v1.0.0 — 2026-04-13
+
+- fix: failing tests (fd0c81f)
+- chore: update CHANGELOG for v0.7.3 (0047ff2)
+
 ## v0.7.3 — 2026-04-13
 
 - security: fix 8 of 9 findings from security audit (SEC-001 through SEC-009) (fd0f0a3)
