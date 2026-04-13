@@ -1,3 +1,8 @@
+## v0.7.3 — 2026-04-13
+
+- security: fix 8 of 9 findings from security audit (SEC-001 through SEC-009) (fd0f0a3)
+- chore: update CHANGELOG for v0.7.2 (2b5af9f)
+
 ## v0.7.2 — 2026-04-13
 
 - fix: resolve 6 QA failures across cursor import, diff, status, env, and cline (75cae87)
