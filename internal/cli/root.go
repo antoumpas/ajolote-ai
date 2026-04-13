@@ -17,10 +17,10 @@ and translates it into each developer's preferred AI tool format.
 
   Maintainer: ajolote init        — scaffold config, update .gitignore, commit .agents/
   Developer:  ajolote use claude  — generate local tool config from the shared config`,
-	Version: "0.1.0",
 }
 
-func Execute() {
+func Execute(version string) {
+	rootCmd.Version = version
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
