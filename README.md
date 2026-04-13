@@ -33,6 +33,11 @@ Everyone edits the `.agents/` files. Each developer runs `ajolote use <tool>` on
 curl -fsSL https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.sh | sh
 ```
 
+To install to a custom directory, set `INSTALL_DIR` before running:
+```sh
+INSTALL_DIR=~/bin curl -fsSL https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.sh | sh
+```
+
 **Windows (PowerShell)**
 ```powershell
 irm https://raw.githubusercontent.com/antoumpas/ajolote-ai/main/install.ps1 | iex
