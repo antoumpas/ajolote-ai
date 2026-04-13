@@ -1,3 +1,9 @@
+## v0.7.2 — 2026-04-13
+
+- fix: resolve 6 QA failures across cursor import, diff, status, env, and cline (75cae87)
+- fix: use 4-backtick fence to fix unclosed code block breaking Supported tools section (20d7290)
+- chore: update CHANGELOG for v0.7.1 (6a9d89b)
+
 ## v0.7.1 — 2026-04-13
 
 - docs: add qa scenarios list (e8a1b40)
