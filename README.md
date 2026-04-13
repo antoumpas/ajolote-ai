@@ -744,14 +744,14 @@ Custom slash commands shared across the whole team. Place `.md` files in `.agent
 
 Each `.agents/commands/<name>.md` file should start with a one-line description followed by the command body:
 
-```markdown
+````markdown
 Run the full test suite and report coverage.
 
 ```sh
 go test ./... -coverprofile=coverage.out
 go tool cover -html=coverage.out
 ```
-```
+````
 
 ---
 
