@@ -101,7 +101,7 @@ func validatePath(p string) error {
 	if p == "" {
 		return fmt.Errorf("path is empty")
 	}
-	if filepath.IsAbs(p) {
+	if filepath.IsAbs(p) || p[0] == '/' {
 		return fmt.Errorf("path %q must be relative, not absolute", p)
 	}
 	clean := filepath.Clean(p)
