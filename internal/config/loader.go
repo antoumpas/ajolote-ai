@@ -5,9 +5,22 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
+// safeName matches identifiers safe for use in TOML table headers, YAML
+// frontmatter, and filesystem paths. Allows letters, digits, hyphens,
+// underscores, and dots (for dotted command names like "speckit.analyze").
+var safeName = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9._-]*$`)
+
+// safeEnvKey matches valid environment variable names.
+var safeEnvKey = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+
 const ConfigPath = ".agents/config.json"
+
+// maxConfigSize is the maximum allowed size for config.json (1 MB).
+const maxConfigSize = 1 << 20
 
 // Load reads and parses .agents/config.json from the given project root.
 func Load(projectRoot string) (*Config, error) {
@@ -20,12 +33,82 @@ func Load(projectRoot string) (*Config, error) {
 		return nil, fmt.Errorf("reading config: %w", err)
 	}
 
+	if len(data) > maxConfigSize {
+		return nil, fmt.Errorf("config file exceeds maximum size (%d bytes)", maxConfigSize)
+	}
+
 	var cfg Config
 	if err := json.Unmarshal(data, &cfg); err != nil {
 		return nil, fmt.Errorf("parsing config: %w", err)
 	}
 
+	if err := cfg.validatePaths(); err != nil {
+		return nil, fmt.Errorf("invalid config: %w", err)
+	}
+
 	return &cfg, nil
+}
+
+// validatePaths checks that all file paths in the config are relative, stay
+// within the project directory, and don't use path traversal (SEC-001).
+func (cfg *Config) validatePaths() error {
+	for _, p := range cfg.Rules {
+		if err := validatePath(p); err != nil {
+			return fmt.Errorf("rules: %w", err)
+		}
+	}
+	for _, p := range cfg.Skills {
+		if err := validatePath(p); err != nil {
+			return fmt.Errorf("skills: %w", err)
+		}
+	}
+	for _, p := range cfg.Context {
+		if err := validatePath(p); err != nil {
+			return fmt.Errorf("context: %w", err)
+		}
+	}
+	for _, p := range cfg.Personas {
+		if err := validatePath(p.Path); err != nil {
+			return fmt.Errorf("personas: %w", err)
+		}
+	}
+	for _, sr := range cfg.ScopedRules {
+		if err := validatePath(sr.Path); err != nil {
+			return fmt.Errorf("scoped_rules[%s]: %w", sr.Name, err)
+		}
+		// SEC-005: Validate scoped rule names for safe use in filenames and YAML frontmatter.
+		if sr.Name != "" && !safeName.MatchString(sr.Name) {
+			return fmt.Errorf("scoped_rules name %q contains invalid characters (allowed: letters, digits, hyphens, underscores, dots)", sr.Name)
+		}
+	}
+	// SEC-003: Validate MCP server names and env keys for safe use in TOML/JSON output.
+	for name, srv := range cfg.MCP.Servers {
+		if !safeName.MatchString(name) {
+			return fmt.Errorf("mcp server name %q contains invalid characters (allowed: letters, digits, hyphens, underscores, dots)", name)
+		}
+		for key := range srv.Env {
+			if !safeEnvKey.MatchString(key) {
+				return fmt.Errorf("mcp server %q env key %q contains invalid characters (allowed: letters, digits, underscores)", name, key)
+			}
+		}
+	}
+	return nil
+}
+
+// validatePath rejects absolute paths and paths that traverse outside the
+// project directory using ".." segments.
+func validatePath(p string) error {
+	if p == "" {
+		return fmt.Errorf("path is empty")
+	}
+	if filepath.IsAbs(p) {
+		return fmt.Errorf("path %q must be relative, not absolute", p)
+	}
+	clean := filepath.Clean(p)
+	if clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path %q must not traverse outside the project directory", p)
+	}
+	return nil
 }
 
 // Save writes cfg to .agents/config.json under projectRoot.

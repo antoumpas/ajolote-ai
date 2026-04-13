@@ -123,10 +123,15 @@ func mergeUserMCPConfig(path string, servers map[string]config.MCPServer) error 
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, append(data, '\n'), 0o644)
+	// SEC-002: Refuse to follow symlinks on home-directory writes.
+	if info, err := os.Lstat(path); err == nil && info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("refusing to write to symlink: %s", path)
+	}
+	// SEC-007: Home-directory files may contain resolved secrets; use 0o600.
+	return os.WriteFile(path, append(data, '\n'), 0o600)
 }
 
 // writeFile writes content to path (relative to projectRoot), creating dirs as needed.

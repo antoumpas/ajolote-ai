@@ -44,9 +44,27 @@ $Tmp = Join-Path $env:TEMP "ajolote-install-$([System.IO.Path]::GetRandomFileNam
 New-Item -ItemType Directory -Path $Tmp | Out-Null
 
 try {
+    $ChecksumsUrl = "https://github.com/$Repo/releases/download/$Version/checksums.txt"
+
     Write-Host "Downloading ajolote $Version (windows/$Arch)..."
     $ZipPath = Join-Path $Tmp $Archive
     Invoke-WebRequest -Uri $Url -OutFile $ZipPath -UseBasicParsing
+
+    # Verify download integrity (SEC-004)
+    Write-Host "Verifying checksum..."
+    $ChecksumsPath = Join-Path $Tmp "checksums.txt"
+    Invoke-WebRequest -Uri $ChecksumsUrl -OutFile $ChecksumsPath -UseBasicParsing
+    $ExpectedLine = (Get-Content $ChecksumsPath | Where-Object { $_ -match $Archive })
+    if ($ExpectedLine) {
+        $ExpectedHash = ($ExpectedLine -split '\s+')[0]
+        $ActualHash = (Get-FileHash -Algorithm SHA256 $ZipPath).Hash.ToLower()
+        if ($ActualHash -ne $ExpectedHash) {
+            Write-Error "Checksum verification failed — download may be corrupted or tampered with.`nExpected: $ExpectedHash`nActual:   $ActualHash"
+            exit 1
+        }
+    } else {
+        Write-Warning "Archive not found in checksums.txt — skipping verification."
+    }
 
     Expand-Archive -Path $ZipPath -DestinationPath $Tmp -Force
 

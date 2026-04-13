@@ -93,6 +93,85 @@ func TestPersonaBackwardCompat(t *testing.T) {
 	}
 }
 
+// SEC-001: Path traversal rejected at load time.
+func TestLoadRejectsPathTraversal(t *testing.T) {
+	cases := []struct {
+		name string
+		json string
+	}{
+		{"rule with ..", `{"mcp":{"servers":{}},"rules":["../../etc/passwd"],"skills":[],"personas":[],"context":[]}`},
+		{"absolute rule", `{"mcp":{"servers":{}},"rules":["/etc/passwd"],"skills":[],"personas":[],"context":[]}`},
+		{"scoped_rule path", `{"mcp":{"servers":{}},"rules":[],"skills":[],"personas":[],"context":[],"scoped_rules":[{"name":"x","globs":["*"],"path":"../../.env"}]}`},
+		{"persona path", `{"mcp":{"servers":{}},"rules":[],"skills":[],"personas":["../../.ssh/id_rsa"],"context":[]}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			os.MkdirAll(filepath.Join(dir, ".agents"), 0o755)
+			os.WriteFile(filepath.Join(dir, ".agents", "config.json"), []byte(tc.json), 0o644)
+
+			_, err := config.Load(dir)
+			if err == nil {
+				t.Fatal("expected error for path traversal, got nil")
+			}
+		})
+	}
+}
+
+// SEC-003: Invalid MCP server names and env keys rejected at load time.
+func TestLoadRejectsInvalidServerNames(t *testing.T) {
+	cases := []struct {
+		name string
+		json string
+	}{
+		{"server name with ]", `{"mcp":{"servers":{"evil]":{"command":"x"}}},"rules":[],"skills":[],"personas":[],"context":[]}`},
+		{"env key with newline", `{"mcp":{"servers":{"ok":{"command":"x","env":{"KEY\nINJECT":"v"}}}},"rules":[],"skills":[],"personas":[],"context":[]}`},
+		{"env key with =", `{"mcp":{"servers":{"ok":{"command":"x","env":{"K=V":"v"}}}},"rules":[],"skills":[],"personas":[],"context":[]}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			os.MkdirAll(filepath.Join(dir, ".agents"), 0o755)
+			os.WriteFile(filepath.Join(dir, ".agents", "config.json"), []byte(tc.json), 0o644)
+
+			_, err := config.Load(dir)
+			if err == nil {
+				t.Fatal("expected error for invalid name, got nil")
+			}
+		})
+	}
+}
+
+// SEC-009: Oversized config rejected.
+func TestLoadRejectsOversizedConfig(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".agents"), 0o755)
+	// Write a file larger than 1 MB
+	big := make([]byte, 1<<20+1)
+	for i := range big {
+		big[i] = ' '
+	}
+	os.WriteFile(filepath.Join(dir, ".agents", "config.json"), big, 0o644)
+
+	_, err := config.Load(dir)
+	if err == nil {
+		t.Fatal("expected error for oversized config, got nil")
+	}
+}
+
+// SEC-001: Valid paths accepted.
+func TestLoadAcceptsValidPaths(t *testing.T) {
+	cfgJSON := `{"mcp":{"servers":{}},"rules":[".agents/rules/general.md"],"skills":[".agents/skills/git.md"],"personas":[".agents/personas/reviewer.md"],"context":[".agents/context/arch.md"]}`
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".agents"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".agents", "config.json"), []byte(cfgJSON), 0o644)
+
+	_, err := config.Load(dir)
+	if err != nil {
+		t.Fatalf("expected valid config to load, got: %v", err)
+	}
+}
+
 func TestPersonaRoundTrip(t *testing.T) {
 	dir := t.TempDir()
 

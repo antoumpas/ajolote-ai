@@ -124,21 +124,27 @@ func runSync(cmd *cobra.Command, args []string) error {
 				if exists {
 					continue
 				}
-				// Write the rule content file if not already there
+				// Write the rule content file if not already there.
+				// SEC-008: Use O_CREATE|O_EXCL for atomic creation to avoid TOCTOU races.
 				rulePath := filepath.Join(projectRoot, sr.Path)
-				if _, err := os.Stat(rulePath); os.IsNotExist(err) {
-					if err := os.MkdirAll(filepath.Dir(rulePath), 0o755); err != nil {
-						return fmt.Errorf("creating .agents/rules/: %w", err)
+				if err := os.MkdirAll(filepath.Dir(rulePath), 0o755); err != nil {
+					return fmt.Errorf("creating .agents/rules/: %w", err)
+				}
+				content := result.ScopedRuleContents[sr.Name]
+				if content == "" {
+					content = "# " + sr.Name + "\n"
+				} else {
+					content = content + "\n"
+				}
+				f, err := os.OpenFile(rulePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+				if err == nil {
+					_, writeErr := f.WriteString(content)
+					f.Close()
+					if writeErr != nil {
+						return fmt.Errorf("writing %s: %w", sr.Path, writeErr)
 					}
-					content := result.ScopedRuleContents[sr.Name]
-					if content == "" {
-						content = "# " + sr.Name + "\n"
-					} else {
-						content = content + "\n"
-					}
-					if err := os.WriteFile(rulePath, []byte(content), 0o644); err != nil {
-						return fmt.Errorf("writing %s: %w", sr.Path, err)
-					}
+				} else if !os.IsExist(err) {
+					return fmt.Errorf("creating %s: %w", sr.Path, err)
 				}
 				cfg.ScopedRules = append(cfg.ScopedRules, sr)
 				fmt.Printf("  %s %s  %s\n", up("↑"), sr.Path, added("(new scoped rule imported)"))

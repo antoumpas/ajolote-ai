@@ -56,8 +56,27 @@ URL="https://github.com/${REPO}/releases/download/${VERSION}/${ARCHIVE}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
+CHECKSUMS_URL="https://github.com/${REPO}/releases/download/${VERSION}/checksums.txt"
+
 echo "Downloading ajolote ${VERSION} (${os}/${arch})..."
 curl -fsSL "$URL" -o "${TMP}/${ARCHIVE}"
+curl -fsSL "$CHECKSUMS_URL" -o "${TMP}/checksums.txt"
+
+# Verify download integrity (SEC-004)
+echo "Verifying checksum..."
+if command -v sha256sum >/dev/null 2>&1; then
+  (cd "$TMP" && sha256sum --ignore-missing -c checksums.txt) || {
+    echo "Checksum verification failed — download may be corrupted or tampered with." >&2
+    exit 1
+  }
+elif command -v shasum >/dev/null 2>&1; then
+  (cd "$TMP" && shasum -a 256 --ignore-missing -c checksums.txt) || {
+    echo "Checksum verification failed — download may be corrupted or tampered with." >&2
+    exit 1
+  }
+else
+  echo "Warning: neither sha256sum nor shasum found — skipping checksum verification." >&2
+fi
 
 tar -xzf "${TMP}/${ARCHIVE}" -C "$TMP"
 
