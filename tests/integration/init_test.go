@@ -4,13 +4,15 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/ajolote-ai/ajolote/internal/cli/commands"
 )
 
 // runInit executes the init command in dir and returns any error.
-func runInit(t *testing.T, dir string) error {
+// Optional extra args (e.g. "--from", "cursor") are forwarded to the command.
+func runInit(t *testing.T, dir string, args ...string) error {
 	t.Helper()
 	orig, err := os.Getwd()
 	if err != nil {
@@ -22,7 +24,7 @@ func runInit(t *testing.T, dir string) error {
 	t.Cleanup(func() { os.Chdir(orig) })
 
 	cmd := commands.InitCmd()
-	cmd.SetArgs(nil)
+	cmd.SetArgs(args)
 	return cmd.Execute()
 }
 
@@ -185,5 +187,65 @@ func TestInitSkipsWhenConfigExists(t *testing.T) {
 	json.Unmarshal(data, &cfg)
 	if cfg.Project.Name != "existing" {
 		t.Errorf("init overwrote existing config.json (project name changed to %q)", cfg.Project.Name)
+	}
+}
+
+func TestInitFromFlagImportsOnlySpecifiedTool(t *testing.T) {
+	dir := t.TempDir()
+
+	// Claude has a command
+	os.MkdirAll(filepath.Join(dir, ".claude", "commands"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".claude/commands/deploy.md"),
+		[]byte("Claude version of deploy\n"), 0o644)
+
+	// Cursor has a different version of the same command plus an MCP server
+	os.MkdirAll(filepath.Join(dir, ".cursor", "rules"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".cursor/mcp.json"),
+		[]byte(`{"mcpServers":{"myserver":{"command":"node","args":["server.js"]}}}`), 0o644)
+	os.WriteFile(filepath.Join(dir, ".cursor/rules/deploy.mdc"),
+		[]byte("---\ndescription: Deploy\nalwaysApply: false\n---\n\nCursor version of deploy\n"), 0o644)
+
+	if err := runInit(t, dir, "--from", "cursor"); err != nil {
+		t.Fatalf("init --from cursor failed: %v", err)
+	}
+
+	// deploy.md should come from Cursor, not Claude
+	data, err := os.ReadFile(filepath.Join(dir, ".agents", "commands", "deploy.md"))
+	if err != nil {
+		t.Fatal("deploy.md was not imported")
+	}
+	if !strings.Contains(string(data), "Cursor version") {
+		t.Errorf("expected Cursor version in deploy.md, got: %s", string(data))
+	}
+
+	// Cursor's MCP server should be imported
+	cfgData, err := os.ReadFile(filepath.Join(dir, ".agents", "config.json"))
+	if err != nil {
+		t.Fatal("config.json not created")
+	}
+	if !strings.Contains(string(cfgData), "myserver") {
+		t.Errorf("expected myserver MCP server to be imported from cursor")
+	}
+}
+
+func TestInitFromFlagUnknownToolErrors(t *testing.T) {
+	dir := t.TempDir()
+	err := runInit(t, dir, "--from", "unknowntool")
+	if err == nil {
+		t.Fatal("expected error for unknown tool, got nil")
+	}
+	if !strings.Contains(err.Error(), "unknowntool") {
+		t.Errorf("error message should mention the unknown tool name, got: %v", err)
+	}
+}
+
+func TestInitFromFlagNoConfigOnDiskSucceeds(t *testing.T) {
+	dir := t.TempDir()
+	// No cursor files exist — init should still scaffold .agents/ cleanly
+	if err := runInit(t, dir, "--from", "cursor"); err != nil {
+		t.Fatalf("init --from cursor should succeed even with no cursor config on disk: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".agents", "config.json")); err != nil {
+		t.Error("config.json was not created")
 	}
 }

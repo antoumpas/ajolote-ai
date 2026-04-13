@@ -54,7 +54,8 @@ Or download a binary for your platform from the [releases page](https://github.c
 
 ```sh
 # Maintainer — one-time setup in any project (Python, Go, Java, Ruby — anything)
-ajolote init
+ajolote init                  # auto-detect and import from all present tool configs
+ajolote init --from cursor    # import only from Cursor's existing config
 
 # Developer — after cloning, generate config for your tool of choice
 ajolote use claude   # or cursor, windsurf, copilot, cline, aider, gemini, codex, agents-md
@@ -657,6 +658,8 @@ All files in `.agents/` are committed to git and shared across the team. Agents 
 ```
 
 `ajolote init` seeds all directories with starter templates. Fill them in with your project's real information and commit — that's where the value is.
+
+If multiple tools are configured in your project, init imports from all of them (first tool wins for conflicts). Use `--from <tool>` to import from a specific tool only — for example `ajolote init --from cursor`.
 
 ### Scoped Rules
 

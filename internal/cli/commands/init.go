@@ -14,7 +14,8 @@ import (
 )
 
 func InitCmd() *cobra.Command {
-	return &cobra.Command{
+	var fromTool string
+	cmd := &cobra.Command{
 		Use:   "init",
 		Short: "Scaffold ajolote config in the current project",
 		Long: `Creates .agents/config.json (the shared source of truth), seeds starter skill files,
@@ -25,11 +26,15 @@ and command files are imported into .agents/ automatically.
 
 Edit .agents/config.json to match your project, then commit the .agents/ directory.
 Each developer then runs 'ajolote use <tool>' to generate their own local tool config.`,
-		RunE: runInit,
 	}
+	cmd.Flags().StringVar(&fromTool, "from", "", "Import only from this tool (e.g. claude, cursor). Default: import from all detected tools.")
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runInit(cmd, args, fromTool)
+	}
+	return cmd
 }
 
-func runInit(cmd *cobra.Command, args []string) error {
+func runInit(cmd *cobra.Command, args []string, fromTool string) error {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return err
@@ -41,11 +46,17 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	if fromTool != "" {
+		if _, err := translators.Get(fromTool); err != nil {
+			return err
+		}
+	}
+
 	// Create config scaffold
 	cfg := config.DefaultConfig()
 
 	// Detect any existing tool configs and import from them before saving
-	imported := importFromExistingTools(projectRoot, cfg)
+	imported := importFromExistingTools(projectRoot, cfg, fromTool)
 
 	if err := config.Save(projectRoot, cfg); err != nil {
 		return err
@@ -165,13 +176,22 @@ type initImports struct {
 	ruleFiles map[string]string     // filename → content, from first tool that has them
 }
 
-// importFromExistingTools scans all translators for existing configs and merges
-// discovered MCP servers into cfg. Returns a summary of what was found.
-func importFromExistingTools(projectRoot string, cfg *config.Config) initImports {
+// importFromExistingTools scans translators for existing configs and merges
+// discovered MCP servers into cfg. If fromTool is non-empty, only that tool is
+// scanned. Returns a summary of what was found.
+func importFromExistingTools(projectRoot string, cfg *config.Config, fromTool string) initImports {
 	var result initImports
 	seen := map[string]bool{} // deduplicate commands across tools
 
-	for _, t := range translators.All() {
+	var candidates []translators.Syncer
+	if fromTool != "" {
+		t, _ := translators.Get(fromTool) // already validated by caller
+		candidates = []translators.Syncer{t}
+	} else {
+		candidates = translators.All()
+	}
+
+	for _, t := range candidates {
 		ir, err := t.Import(projectRoot)
 		if err != nil || ir == nil {
 			continue
@@ -208,6 +228,10 @@ func importFromExistingTools(projectRoot string, cfg *config.Config) initImports
 		if ti.nServers > 0 || len(ti.commands) > 0 || ti.nRuleFiles > 0 {
 			result.byTool = append(result.byTool, ti)
 		}
+	}
+
+	if fromTool != "" && len(result.byTool) == 0 {
+		fmt.Printf("  No config found for %s — nothing imported.\n", fromTool)
 	}
 
 	return result
