@@ -1,3 +1,10 @@
+## v1.1.0 — 2026-04-14
+
+- feat: replace env var cache bypass with --refresh flag (d86dbf3)
+- feat: add org-level config inheritance via extends field (b6d670f)
+- chote: update gitignore (c489a93)
+- chore: update CHANGELOG for v1.0.0 (fe7fa53)
+
 ## v1.0.0 — 2026-04-13
 
 - fix: failing tests (fd0c81f)
