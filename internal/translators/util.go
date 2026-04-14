@@ -452,6 +452,145 @@ func resolveModel(model string) string {
 	return model
 }
 
+// parseWindsurfWorkflow extracts the description and body from a Windsurf
+// workflow YAML file. It scans for a top-level "description:" key and collects
+// the content of all "say: |" multi-line blocks. No full YAML parser is needed
+// because the format is our own predictable generated output.
+func parseWindsurfWorkflow(raw string) (description, body string) {
+	lines := strings.Split(raw, "\n")
+	var bodyLines []string
+	inSay := false
+	sayIndent := 0
+
+	for _, line := range lines {
+		if inSay {
+			if line == "" {
+				bodyLines = append(bodyLines, "")
+				continue
+			}
+			indent := len(line) - len(strings.TrimLeft(line, " "))
+			if indent >= sayIndent {
+				bodyLines = append(bodyLines, line[sayIndent:])
+			} else {
+				inSay = false
+			}
+			continue
+		}
+		trimmed := strings.TrimSpace(line)
+		if after, ok := strings.CutPrefix(trimmed, "description: "); ok {
+			description = strings.TrimSpace(after)
+			continue
+		}
+		if strings.HasSuffix(trimmed, "say: |") {
+			inSay = true
+			// Content lines are indented two spaces beyond the "say:" key.
+			idx := strings.Index(line, "say:")
+			sayIndent = idx + 2
+		}
+	}
+	body = strings.TrimSpace(strings.Join(bodyLines, "\n"))
+	return
+}
+
+// parseCodexTOML parses a .codex/config.toml file and returns the MCP servers
+// it defines. The format is ajolote's own generated TOML so a full library is
+// not required — a simple line-by-line state machine is sufficient.
+// Returns nil map (no error) when the file does not exist.
+func parseCodexTOML(path string) (map[string]config.MCPServer, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", path, err)
+	}
+
+	servers := map[string]config.MCPServer{}
+	var current string // current server name
+	inEnv := false
+
+	for _, rawLine := range strings.Split(string(data), "\n") {
+		line := strings.TrimSpace(rawLine)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+
+		// Section headers
+		if strings.HasPrefix(line, "[") && strings.HasSuffix(line, "]") {
+			inner := line[1 : len(line)-1]
+			const prefix = "mcp.servers."
+			if strings.HasPrefix(inner, prefix) {
+				rest := inner[len(prefix):]
+				if strings.HasSuffix(rest, ".env") {
+					current = rest[:len(rest)-4]
+					inEnv = true
+				} else if !strings.Contains(rest, ".") {
+					current = rest
+					inEnv = false
+					if _, exists := servers[current]; !exists {
+						servers[current] = config.MCPServer{}
+					}
+				}
+			} else {
+				current = ""
+				inEnv = false
+			}
+			continue
+		}
+
+		if current == "" {
+			continue
+		}
+		k, v, ok := strings.Cut(line, " = ")
+		if !ok {
+			continue
+		}
+		k = strings.TrimSpace(k)
+		v = strings.TrimSpace(v)
+
+		srv := servers[current]
+		if inEnv {
+			if srv.Env == nil {
+				srv.Env = map[string]string{}
+			}
+			srv.Env[k] = strings.Trim(v, `"`)
+		} else {
+			switch k {
+			case "command":
+				srv.Command = strings.Trim(v, `"`)
+			case "transport":
+				srv.Transport = strings.Trim(v, `"`)
+			case "url":
+				srv.URL = strings.Trim(v, `"`)
+			case "args":
+				srv.Args = parseTomlStringArray(v)
+			}
+		}
+		servers[current] = srv
+	}
+	return servers, nil
+}
+
+// parseTomlStringArray parses a TOML inline array literal like ["a", "-y", "b"]
+// into a Go string slice.
+func parseTomlStringArray(s string) []string {
+	s = strings.TrimSpace(s)
+	s = strings.TrimPrefix(s, "[")
+	s = strings.TrimSuffix(s, "]")
+	if strings.TrimSpace(s) == "" {
+		return nil
+	}
+	var result []string
+	for _, part := range strings.Split(s, ",") {
+		part = strings.TrimSpace(part)
+		part = strings.Trim(part, `"`)
+		if part != "" {
+			result = append(result, part)
+		}
+	}
+	return result
+}
+
 // fileListMarkdown renders a list of file paths as markdown bullets.
 func fileListMarkdown(heading string, paths []string) string {
 	if len(paths) == 0 {
