@@ -89,6 +89,7 @@ type localFetcher struct{}
 func (f *localFetcher) CanHandle(source string) bool {
 	return strings.HasPrefix(source, "file://") ||
 		filepath.IsAbs(source) ||
+		strings.HasPrefix(source, "/") || // Unix-style absolute path (also valid on Windows)
 		strings.HasPrefix(source, "./") ||
 		strings.HasPrefix(source, "../")
 }

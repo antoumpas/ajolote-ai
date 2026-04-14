@@ -15,7 +15,8 @@ import (
 )
 
 func ValidateCmd() *cobra.Command {
-	return &cobra.Command{
+	var refresh bool
+	cmd := &cobra.Command{
 		Use:   "validate",
 		Short: "Check that all files and MCP servers in config.json are valid",
 		Long: `Validate checks the canonical config for common problems before syncing:
@@ -29,11 +30,15 @@ func ValidateCmd() *cobra.Command {
 Exits with status 1 if any error is found. Warnings (e.g. a command not found
 in the current PATH) are printed but do not affect the exit code.`,
 		SilenceUsage: true,
-		RunE:         runValidate,
 	}
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Re-fetch the inherited base config even if the local cache is still fresh")
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runValidate(refresh)
+	}
+	return cmd
 }
 
-func runValidate(cmd *cobra.Command, args []string) error {
+func runValidate(refresh bool) error {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return err
@@ -52,7 +57,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	// Resolve inheritance so inherited files are also validated.
-	resolved, err := config.Resolve(cfg, projectRoot)
+	resolved, err := config.Resolve(cfg, projectRoot, refresh)
 	if err != nil {
 		v.failMsg(fmt.Sprintf("extends: %v", err))
 		resolved = cfg // fall back to local-only for file checks

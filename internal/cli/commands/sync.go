@@ -13,7 +13,8 @@ import (
 )
 
 func SyncCmd() *cobra.Command {
-	return &cobra.Command{
+	var refresh bool
+	cmd := &cobra.Command{
 		Use:   "sync [<tool>]",
 		Short: "Two-way sync between .agents/config.json and your tool's config",
 		Long: `Runs in both directions:
@@ -22,12 +23,16 @@ func SyncCmd() *cobra.Command {
 
 Without a tool argument, syncs every tool whose config files are already present on disk.`,
 		Args:    cobra.MaximumNArgs(1),
-		RunE:    runSync,
-		Example: "  ajolote sync\n  ajolote sync cursor\n  ajolote sync claude",
+		Example: "  ajolote sync\n  ajolote sync cursor\n  ajolote sync claude\n  ajolote sync --refresh",
 	}
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Re-fetch the inherited base config even if the local cache is still fresh")
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runSync(args, refresh)
+	}
+	return cmd
 }
 
-func runSync(cmd *cobra.Command, args []string) error {
+func runSync(args []string, refresh bool) error {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return err
@@ -155,7 +160,7 @@ func runSync(cmd *cobra.Command, args []string) error {
 		}
 
 		// ↓ Export — resolve inheritance so generated files include org-wide settings.
-		resolved, err := config.Resolve(cfg, projectRoot)
+		resolved, err := config.Resolve(cfg, projectRoot, refresh)
 		if err != nil {
 			return fmt.Errorf("resolving config inheritance: %w", err)
 		}

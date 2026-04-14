@@ -14,7 +14,8 @@ import (
 )
 
 func DiffCmd() *cobra.Command {
-	return &cobra.Command{
+	var refresh bool
+	cmd := &cobra.Command{
 		Use:   "diff [<tool>]",
 		Short: "Show what ajolote sync would change without writing anything",
 		Long: `Generates each tool's config into a temporary directory and compares it
@@ -27,25 +28,32 @@ User-scoped MCP server entries (~/.claude.json, ~/.cursor/mcp.json) are
 excluded from the diff.`,
 		SilenceUsage: true,
 		Args:         cobra.MaximumNArgs(1),
-		RunE:         runDiff,
 		Example:      "  ajolote diff\n  ajolote diff cursor\n  ajolote diff claude",
 	}
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Re-fetch the inherited base config even if the local cache is still fresh")
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runDiff(args, refresh)
+	}
+	return cmd
 }
 
-func runDiff(cmd *cobra.Command, args []string) error {
+func runDiff(args []string, refresh bool) error {
 	projectRoot, err := os.Getwd()
 	if err != nil {
 		return err
 	}
 
-	cfg, err := config.Load(projectRoot)
+	rawCfg, err := config.Load(projectRoot)
 	if err != nil {
 		return err
 	}
 
+	// Save the raw extends value before Resolve clears it in the merged result.
+	rawExtends := rawCfg.Extends
+
 	// Resolve inheritance so the diff reflects what sync would actually generate.
 	// This also populates .agents/.base/ which is then copied into each temp dir.
-	cfg, err = config.Resolve(cfg, projectRoot)
+	cfg, err := config.Resolve(rawCfg, projectRoot, refresh)
 	if err != nil {
 		return err
 	}
@@ -148,6 +156,57 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// For local extends sources, compare .agents/.base/ against the source's
+	// .agents/ directory. This detects cache tampering or drift that would not
+	// otherwise be visible in @file-based translators (Claude, Gemini) since
+	// they emit only @path references rather than inlining file content.
+	if rawExtends != "" {
+		source := config.ResolveSource(rawExtends, projectRoot)
+		if isLocalFSSource(source) {
+			sourceAgentsDir := filepath.Join(strings.TrimPrefix(source, "file://"), ".agents")
+			baseCacheDir := filepath.Join(projectRoot, ".agents", ".base")
+			if _, statErr := os.Stat(sourceAgentsDir); statErr == nil {
+				fmt.Printf("\n%s\n", bold("base cache"))
+				walkErr := filepath.Walk(sourceAgentsDir, func(path string, info os.FileInfo, walkE error) error {
+					if walkE != nil || info.IsDir() {
+						return walkE
+					}
+					rel, _ := filepath.Rel(sourceAgentsDir, path)
+					cachedPath := filepath.Join(baseCacheDir, rel)
+
+					sourceData, readErr := os.ReadFile(path)
+					if readErr != nil {
+						return readErr
+					}
+					cachedData, readErr := os.ReadFile(cachedPath)
+					if os.IsNotExist(readErr) {
+						fmt.Printf("  %s %s\n", cyan("+"), rel)
+						printDiffLines(nil, sourceData)
+						totalNew++
+						return nil
+					}
+					if readErr != nil {
+						return readErr
+					}
+					if string(sourceData) == string(cachedData) {
+						fmt.Printf("  %s %s\n", green("✔"), rel)
+						return nil
+					}
+					fmt.Printf("  %s %s\n", red("~"), rel)
+					d := unifiedDiff(string(cachedData), string(sourceData), rel)
+					for _, line := range strings.Split(strings.TrimRight(d, "\n"), "\n") {
+						printDiffLine(line)
+					}
+					totalChanged++
+					return nil
+				})
+				if walkErr != nil {
+					return fmt.Errorf("comparing base cache: %w", walkErr)
+				}
+			}
+		}
+	}
+
 	fmt.Println()
 	if totalChanged == 0 && totalNew == 0 {
 		color.Green("Nothing would change.")
@@ -186,6 +245,14 @@ func printDiffLines(_, content []byte) {
 	for _, line := range strings.Split(strings.TrimRight(string(content), "\n"), "\n") {
 		fmt.Println("     " + color.New(color.FgGreen).Sprint("+"+line))
 	}
+}
+
+// isLocalFSSource reports whether source is a local filesystem path (not a remote URL).
+func isLocalFSSource(source string) bool {
+	return strings.HasPrefix(source, "file://") ||
+		filepath.IsAbs(source) ||
+		strings.HasPrefix(source, "./") ||
+		strings.HasPrefix(source, "../")
 }
 
 // copyDir recursively copies src into dst, creating dst and all subdirectories as needed.

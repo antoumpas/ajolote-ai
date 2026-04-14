@@ -68,19 +68,21 @@ func Load(projectRoot string) (*Config, error) {
 // .agents/.base/), its config is merged with the local config, and the merged
 // result is returned. Local values always win over inherited ones.
 //
-// Cache TTL defaults to 1 hour. Override with AJOLOTE_CACHE_TTL_SECONDS env var
-// (set to 0 to always re-fetch).
+// When refresh is true the cached copy is ignored and the base source is
+// re-fetched unconditionally. This is the behaviour driven by --refresh on CLI
+// commands. The cache TTL (default 1 hour) can also be tuned via the
+// AJOLOTE_CACHE_TTL_SECONDS environment variable.
 //
 // If cfg.Extends is empty, cfg is returned unchanged.
-func Resolve(cfg *Config, projectRoot string) (*Config, error) {
+func Resolve(cfg *Config, projectRoot string, refresh bool) (*Config, error) {
 	if cfg.Extends == "" {
 		return cfg, nil
 	}
 
-	source := resolveSource(cfg.Extends, projectRoot)
+	source := ResolveSource(cfg.Extends, projectRoot)
 	destDir := filepath.Join(projectRoot, baseCacheDir)
 
-	if err := refreshBaseCache(source, destDir); err != nil {
+	if err := refreshBaseCache(source, destDir, refresh); err != nil {
 		return nil, fmt.Errorf("fetching base config from %q: %w", cfg.Extends, err)
 	}
 
@@ -106,9 +108,9 @@ func Resolve(cfg *Config, projectRoot string) (*Config, error) {
 	return MergeConfigs(rebased, cfg), nil
 }
 
-// resolveSource converts a relative local path to an absolute path using
+// ResolveSource converts a relative local path to an absolute path using
 // projectRoot as the base. URLs and git@ addresses are returned unchanged.
-func resolveSource(source, projectRoot string) string {
+func ResolveSource(source, projectRoot string) string {
 	if strings.Contains(source, "://") || strings.HasPrefix(source, "git@") {
 		return source
 	}
@@ -119,8 +121,9 @@ func resolveSource(source, projectRoot string) string {
 }
 
 // refreshBaseCache ensures .agents/.base/ contains a fresh copy of the base
-// source's .agents/ directory. Returns immediately if the cache is still within TTL.
-func refreshBaseCache(source, destDir string) error {
+// source's .agents/ directory. Returns immediately if the cache is still within
+// TTL, unless refresh is true in which case it always re-fetches.
+func refreshBaseCache(source, destDir string, refresh bool) error {
 	ttl := defaultCacheTTL
 	if s := os.Getenv("AJOLOTE_CACHE_TTL_SECONDS"); s != "" {
 		if n, err := strconv.Atoi(s); err == nil {
@@ -128,14 +131,24 @@ func refreshBaseCache(source, destDir string) error {
 		}
 	}
 
-	// Check whether the cache is still fresh.
-	if ttl > 0 {
+	// Check whether the cache is still fresh (skipped when --refresh is set).
+	if !refresh && ttl > 0 {
 		metaPath := filepath.Join(destDir, ".meta.json")
 		if data, err := os.ReadFile(metaPath); err == nil {
 			var meta cacheMeta
 			if json.Unmarshal(data, &meta) == nil && meta.Source == source {
 				if t, err := time.Parse(time.RFC3339, meta.FetchedAt); err == nil {
 					if time.Since(t) < ttl {
+						// Cache is still within TTL. For local sources we can cheaply
+						// verify the source is still accessible. If it has disappeared,
+						// warn so users know they're running on stale inherited data.
+						if (&localFetcher{}).CanHandle(source) {
+							root := strings.TrimPrefix(source, "file://")
+							agentsDir := filepath.Join(root, ".agents")
+							if _, statErr := os.Stat(agentsDir); statErr != nil {
+								fmt.Fprintf(os.Stderr, "warning: could not refresh base config from %q (using cached copy): source directory no longer exists\n", source)
+							}
+						}
 						return nil // cache is fresh
 					}
 				}
