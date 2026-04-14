@@ -661,6 +661,110 @@ All files in `.agents/` are committed to git and shared across the team. Agents 
 
 If multiple tools are configured in your project, init imports from all of them (first tool wins for conflicts). Use `--from <tool>` to import from a specific tool only — for example `ajolote init --from cursor`.
 
+## Config Inheritance
+
+Large organisations often maintain shared coding standards, org-wide MCP servers, and reusable personas that every team project should inherit without manually copying files into each repo.
+
+Add an `"extends"` field to `.agents/config.json` pointing to the **root of the base project**:
+
+```json
+{
+  "extends": "git@github.com:your-org/ai-standards.git",
+  "mcp": {
+    "servers": {
+      "my-project-specific-server": { "command": "npx", "args": ["project-mcp"] }
+    }
+  },
+  "rules": [".agents/rules/general.md"]
+}
+```
+
+When you run `ajolote use <tool>`, `ajolote sync`, or `ajolote diff`, ajolote:
+
+1. Fetches the base project's entire `.agents/` directory and caches it under `.agents/.base/` (gitignored)
+2. Merges the base config with your local config — **local values always win**
+3. Generates tool files from the merged result
+
+### What gets inherited
+
+| Section | Merge strategy |
+|---|---|
+| `mcp.servers` | Base servers added; local overrides by server name |
+| `rules`, `skills`, `context`, `commands` | Local entries first; base entries appended where filename doesn't already exist locally |
+| `personas` | Local first; base appended where `filepath.Base(.path)` doesn't conflict |
+| `scoped_rules` | Local first; base appended where `.name` doesn't conflict |
+| `extends` | **Not inherited** — inheritance does not chain |
+
+### Supported source schemes
+
+| Scheme | Example |
+|---|---|
+| Local path | `"/Users/shared/ai-standards"` or `"../ai-standards"` |
+| HTTPS URL | `"https://example.com/ai-standards"` |
+| Git (SSH) | `"git@github.com:your-org/ai-standards.git"` |
+| Git (HTTPS) | `"https://github.com/your-org/ai-standards.git"` |
+| FTP | `"ftp://ftp.company.com/standards"` or `"ftp://user:pass@host/path"` |
+
+### Setting up an org standards repo
+
+Create a repo with a standard `.agents/` directory:
+
+```
+ai-standards/
+  .agents/
+    config.json          ← org-wide MCP servers, rules, skills, personas
+    rules/
+      org-style.md       ← Your organisation's coding standards
+    skills/
+      deploy.md          ← Shared deployment skill
+    personas/
+      security-reviewer.md
+    commands/
+      review.md
+```
+
+In `config.json`, list the `commands` array explicitly if you want command files to be inherited by projects using **HTTPS or FTP** sources (git and local sources auto-discover all `commands/*.md` files):
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "github-mcp": { "command": "npx", "args": ["-y", "@modelcontextprotocol/server-github"], "env": { "GITHUB_TOKEN": "${GITHUB_TOKEN}" } }
+    }
+  },
+  "rules": [".agents/rules/org-style.md"],
+  "skills": [".agents/skills/deploy.md"],
+  "personas": [".agents/personas/security-reviewer.md"],
+  "context": [],
+  "commands": [".agents/commands/review.md"]
+}
+```
+
+Then in each project's `.agents/config.json`:
+
+```json
+{
+  "extends": "git@github.com:your-org/ai-standards.git",
+  "mcp": { "servers": {} },
+  "rules": [".agents/rules/general.md"],
+  "skills": [],
+  "personas": [],
+  "context": []
+}
+```
+
+Projects can override any file from the base by creating a local file with the same name. For example, creating `.agents/rules/org-style.md` in a project will replace the inherited org style rules for that project.
+
+### Cache
+
+Fetched base files are cached in `.agents/.base/` with a 1-hour TTL. To force a refresh:
+
+```sh
+AJOLOTE_CACHE_TTL_SECONDS=0 ajolote sync
+```
+
+`.agents/.base/` is automatically gitignored by `ajolote init`.
+
 ### Scoped Rules
 
 Rules that only activate for files matching specific glob patterns. Each tool renders them in its native format:

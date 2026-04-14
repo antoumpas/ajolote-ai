@@ -47,6 +47,11 @@ func runUse(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	cfg, err = config.Resolve(cfg, projectRoot)
+	if err != nil {
+		return err
+	}
+
 	if err := t.Generate(cfg, projectRoot); err != nil {
 		return fmt.Errorf("generating %s config: %w", toolName, err)
 	}

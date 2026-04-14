@@ -39,6 +39,8 @@ func runSync(cmd *cobra.Command, args []string) error {
 	}
 
 	// Determine which tools to sync
+	// Note: cfg is intentionally kept as the raw local config throughout the
+	// import phase so that Save() preserves the extends field unchanged.
 	var targets []translators.Syncer
 	if len(args) == 1 {
 		t, err := translators.Get(args[0])
@@ -152,8 +154,12 @@ func runSync(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// ↓ Export
-		if err := t.Generate(cfg, projectRoot); err != nil {
+		// ↓ Export — resolve inheritance so generated files include org-wide settings.
+		resolved, err := config.Resolve(cfg, projectRoot)
+		if err != nil {
+			return fmt.Errorf("resolving config inheritance: %w", err)
+		}
+		if err := t.Generate(resolved, projectRoot); err != nil {
 			return fmt.Errorf("generating %s config: %w", t.Name(), err)
 		}
 		for _, f := range t.OutputFiles() {

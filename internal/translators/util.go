@@ -171,15 +171,45 @@ type Command struct {
 }
 
 // readCommands reads all *.md files from .agents/commands/ under projectRoot.
-// Returns nil (no error) if the directory does not exist.
+// It also scans .agents/.base/commands/ for inherited commands and appends any
+// that are not already present by name (local commands win on name conflict).
+// Returns nil (no error) if neither directory exists.
 func readCommands(projectRoot string) ([]Command, error) {
-	dir := filepath.Join(projectRoot, ".agents", "commands")
+	localDir := filepath.Join(projectRoot, ".agents", "commands")
+	baseDir := filepath.Join(projectRoot, ".agents", ".base", "commands")
+
+	local, err := readCommandDir(localDir)
+	if err != nil {
+		return nil, err
+	}
+	base, err := readCommandDir(baseDir)
+	if err != nil {
+		return nil, err
+	}
+
+	// Merge: local first, then base entries not already in local.
+	seen := make(map[string]bool, len(local))
+	for _, c := range local {
+		seen[c.Name] = true
+	}
+	commands := append([]Command{}, local...)
+	for _, c := range base {
+		if !seen[c.Name] {
+			commands = append(commands, c)
+		}
+	}
+	return commands, nil
+}
+
+// readCommandDir reads all *.md files from a single directory and parses them
+// as commands. Returns nil (no error) if the directory does not exist.
+func readCommandDir(dir string) ([]Command, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("reading .agents/commands: %w", err)
+		return nil, fmt.Errorf("reading %s: %w", dir, err)
 	}
 
 	var commands []Command
