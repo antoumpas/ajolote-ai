@@ -4,6 +4,16 @@ import "encoding/json"
 
 // Config is the canonical ajolote configuration stored in .agents/config.json.
 type Config struct {
+	// Extends points to a base project root whose .agents/ directory is fetched and
+	// merged with this config. Local values always win over inherited ones.
+	// Supported schemes: local path (/abs or ./rel), https://, git@.../https://….git, ftp://
+	Extends string `json:"extends,omitempty"`
+
+	// Commands is an explicit list of command file paths (e.g. ".agents/commands/review.md").
+	// Required when using HTTPS or FTP inheritance so the fetcher knows which command files
+	// to retrieve. For git and local sources all .agents/commands/*.md files are fetched
+	// automatically.
+	Commands    []string     `json:"commands,omitempty"`
 	MCP         MCP          `json:"mcp"`
 	Rules       []string     `json:"rules"`
 	ScopedRules []ScopedRule `json:"scoped_rules,omitempty"`

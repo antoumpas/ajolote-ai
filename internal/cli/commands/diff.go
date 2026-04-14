@@ -43,6 +43,13 @@ func runDiff(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// Resolve inheritance so the diff reflects what sync would actually generate.
+	// This also populates .agents/.base/ which is then copied into each temp dir.
+	cfg, err = config.Resolve(cfg, projectRoot)
+	if err != nil {
+		return err
+	}
+
 	// Determine which tools to diff (same logic as sync)
 	var targets []translators.Syncer
 	if len(args) == 1 {

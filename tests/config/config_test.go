@@ -2,6 +2,8 @@ package config_test
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -223,5 +225,230 @@ func TestPersonaRoundTrip(t *testing.T) {
 	}
 	if arch.Claude.Description != "Software architect for design decisions." {
 		t.Errorf("wrong description: %q", arch.Claude.Description)
+	}
+}
+
+// ── Config inheritance (Resolve) ─────────────────────────────────────────────
+
+// TestResolveWithNoExtends verifies that Resolve is a no-op when Extends is empty.
+func TestResolveWithNoExtends(t *testing.T) {
+	dir := t.TempDir()
+	cfg := config.DefaultConfig()
+	if err := config.Save(dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := config.Resolve(loaded, dir)
+	if err != nil {
+		t.Fatalf("Resolve with no extends: %v", err)
+	}
+	if resolved != loaded {
+		t.Error("Resolve with no extends should return the same pointer")
+	}
+}
+
+// TestResolveWithLocalFileExtends verifies that a local file base is merged correctly.
+func TestResolveWithLocalFileExtends(t *testing.T) {
+	// Create a base project with an org-wide rule.
+	baseProject := t.TempDir()
+	os.MkdirAll(filepath.Join(baseProject, ".agents", "rules"), 0o755)
+	os.MkdirAll(filepath.Join(baseProject, ".agents", "mcp"), 0o755)
+
+	baseCfgJSON := `{
+		"mcp": {"servers": {"org-mcp": {"command": "npx", "args": ["org-tool"]}}},
+		"rules": [".agents/rules/org-style.md"],
+		"skills": [],
+		"personas": [],
+		"context": []
+	}`
+	os.WriteFile(filepath.Join(baseProject, ".agents", "config.json"), []byte(baseCfgJSON), 0o644)
+	os.WriteFile(filepath.Join(baseProject, ".agents", "rules", "org-style.md"), []byte("# Org style"), 0o644)
+
+	// Create the inheriting project.
+	project := t.TempDir()
+	os.MkdirAll(filepath.Join(project, ".agents"), 0o755)
+	os.WriteFile(filepath.Join(project, ".agents", "config.json"), []byte(`{
+		"extends": "`+baseProject+`",
+		"mcp": {"servers": {}},
+		"rules": [],
+		"skills": [],
+		"personas": [],
+		"context": []
+	}`), 0o644)
+
+	os.Setenv("AJOLOTE_CACHE_TTL_SECONDS", "0") // always re-fetch
+	t.Cleanup(func() { os.Unsetenv("AJOLOTE_CACHE_TTL_SECONDS") })
+
+	cfg, err := config.Load(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := config.Resolve(cfg, project)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	// Inherited MCP server should be present.
+	if _, ok := resolved.MCP.Servers["org-mcp"]; !ok {
+		t.Error("inherited org-mcp server should be in resolved config")
+	}
+
+	// Inherited rule should be rebased to .agents/.base/
+	found := false
+	for _, r := range resolved.Rules {
+		if filepath.Base(r) == "org-style.md" {
+			if r[:len(".agents/.base/")] != ".agents/.base/" {
+				t.Errorf("inherited rule should be under .agents/.base/, got %q", r)
+			}
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("inherited rule org-style.md not found in resolved rules: %v", resolved.Rules)
+	}
+}
+
+// TestResolveExtendsLocalWins verifies that a local config overrides the base.
+func TestResolveExtendsLocalWins(t *testing.T) {
+	// Base has an MCP server and a rule.
+	baseProject := t.TempDir()
+	os.MkdirAll(filepath.Join(baseProject, ".agents", "rules"), 0o755)
+	baseCfgJSON := `{
+		"mcp": {"servers": {"shared": {"command": "base-cmd"}}},
+		"rules": [".agents/rules/general.md"],
+		"skills": [],
+		"personas": [],
+		"context": []
+	}`
+	os.WriteFile(filepath.Join(baseProject, ".agents", "config.json"), []byte(baseCfgJSON), 0o644)
+	os.WriteFile(filepath.Join(baseProject, ".agents", "rules", "general.md"), []byte("# Base general"), 0o644)
+
+	// Local project overrides the same MCP server and the same rule filename.
+	project := t.TempDir()
+	os.MkdirAll(filepath.Join(project, ".agents", "rules"), 0o755)
+	os.WriteFile(filepath.Join(project, ".agents", "config.json"), []byte(`{
+		"extends": "`+baseProject+`",
+		"mcp": {"servers": {"shared": {"command": "local-cmd"}}},
+		"rules": [".agents/rules/general.md"],
+		"skills": [],
+		"personas": [],
+		"context": []
+	}`), 0o644)
+	os.WriteFile(filepath.Join(project, ".agents", "rules", "general.md"), []byte("# Local general"), 0o644)
+
+	os.Setenv("AJOLOTE_CACHE_TTL_SECONDS", "0")
+	t.Cleanup(func() { os.Unsetenv("AJOLOTE_CACHE_TTL_SECONDS") })
+
+	cfg, _ := config.Load(project)
+	resolved, err := config.Resolve(cfg, project)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+
+	// Local MCP server wins.
+	if resolved.MCP.Servers["shared"].Command != "local-cmd" {
+		t.Errorf("local MCP server should win, got %q", resolved.MCP.Servers["shared"].Command)
+	}
+
+	// No duplicate general.md — local wins, base copy suppressed.
+	count := 0
+	for _, r := range resolved.Rules {
+		if filepath.Base(r) == "general.md" {
+			count++
+			if r != ".agents/rules/general.md" {
+				t.Errorf("general.md should come from local, got %q", r)
+			}
+		}
+	}
+	if count != 1 {
+		t.Errorf("expected exactly 1 general.md in rules, got %d: %v", count, resolved.Rules)
+	}
+}
+
+// TestResolveHTTPExtends verifies that an HTTPS base source is fetched and merged.
+func TestResolveHTTPExtends(t *testing.T) {
+	files := map[string]string{
+		"/.agents/config.json":  `{"mcp":{"servers":{"http-server":{"command":"npx"}}},"rules":[".agents/rules/http.md"],"skills":[],"personas":[],"context":[]}`,
+		"/.agents/rules/http.md": "# HTTP Rule",
+	}
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if content, ok := files[r.URL.Path]; ok {
+			w.Write([]byte(content))
+		} else {
+			http.NotFound(w, r)
+		}
+	}))
+	defer srv.Close()
+
+	project := t.TempDir()
+	os.MkdirAll(filepath.Join(project, ".agents"), 0o755)
+	os.WriteFile(filepath.Join(project, ".agents", "config.json"), []byte(`{
+		"extends": "`+srv.URL+`",
+		"mcp": {"servers": {}},
+		"rules": [],
+		"skills": [],
+		"personas": [],
+		"context": []
+	}`), 0o644)
+
+	os.Setenv("AJOLOTE_CACHE_TTL_SECONDS", "0")
+	t.Cleanup(func() { os.Unsetenv("AJOLOTE_CACHE_TTL_SECONDS") })
+
+	cfg, _ := config.Load(project)
+	resolved, err := config.Resolve(cfg, project)
+	if err != nil {
+		t.Fatalf("Resolve (HTTP): %v", err)
+	}
+
+	if _, ok := resolved.MCP.Servers["http-server"]; !ok {
+		t.Error("http-server MCP should be inherited")
+	}
+
+	found := false
+	for _, r := range resolved.Rules {
+		if filepath.Base(r) == "http.md" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("http.md rule not found in resolved rules: %v", resolved.Rules)
+	}
+}
+
+// TestResolvePreservesExtendsInRawConfig verifies Save/Load round-trip keeps extends.
+func TestResolvePreservesExtendsInRawConfig(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, ".agents"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".agents", "config.json"), []byte(`{
+		"extends": "https://example.com/standards",
+		"mcp": {"servers": {}},
+		"rules": [],
+		"skills": [],
+		"personas": [],
+		"context": []
+	}`), 0o644)
+
+	cfg, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.Extends != "https://example.com/standards" {
+		t.Errorf("Extends should be preserved by Load, got %q", cfg.Extends)
+	}
+
+	// Save and reload — extends must survive round-trip.
+	if err := config.Save(dir, cfg); err != nil {
+		t.Fatal(err)
+	}
+	reloaded, err := config.Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloaded.Extends != "https://example.com/standards" {
+		t.Errorf("Extends should survive Save/Load round-trip, got %q", reloaded.Extends)
 	}
 }

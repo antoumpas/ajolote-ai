@@ -292,6 +292,8 @@ func ignoreAllTools(projectRoot string) error {
 		}
 		entries = append(entries, t.OutputFiles()...)
 	}
+	// Inherited base config files are cached here and must not be committed.
+	entries = append(entries, ".agents/.base/")
 	return gitignore.Update(projectRoot, entries)
 }
 

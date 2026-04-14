@@ -24,6 +24,7 @@ func ValidateCmd() *cobra.Command {
   - Scoped rules define at least one glob pattern
   - MCP stdio servers have a resolvable command in PATH
   - MCP http/sse servers have a URL configured
+  - extends source uses a recognised scheme (local path, https://, git@, ftp://)
 
 Exits with status 1 if any error is found. Warnings (e.g. a command not found
 in the current PATH) are printed but do not affect the exit code.`,
@@ -44,7 +45,20 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	v := &validator{projectRoot: projectRoot}
-	v.run(cfg)
+
+	// Validate the extends source first (format check only — no network call).
+	if cfg.Extends != "" {
+		v.checkExtends(cfg.Extends)
+	}
+
+	// Resolve inheritance so inherited files are also validated.
+	resolved, err := config.Resolve(cfg, projectRoot)
+	if err != nil {
+		v.failMsg(fmt.Sprintf("extends: %v", err))
+		resolved = cfg // fall back to local-only for file checks
+	}
+
+	v.run(resolved)
 
 	fmt.Println()
 	if v.errors > 0 {
@@ -76,6 +90,16 @@ func (v *validator) run(cfg *config.Config) {
 	v.checkFileSection("Context", cfg.Context)
 	v.checkScopedRules(cfg.ScopedRules)
 	v.checkMCPServers(cfg.MCP.Servers)
+}
+
+func (v *validator) checkExtends(source string) {
+	bold := color.New(color.Bold).SprintFunc()
+	fmt.Printf("\n%s\n", bold("Extends"))
+	if config.CanFetchSource(source) {
+		v.ok(source)
+	} else {
+		v.fail(source, "unsupported source scheme (supported: local path, https://, git@.../https://….git, ftp://)")
+	}
 }
 
 func (v *validator) checkFileSection(heading string, paths []string) {
@@ -198,5 +222,11 @@ func (v *validator) warn(label, msg string) {
 func (v *validator) fail(label, msg string) {
 	red := color.New(color.FgRed).SprintFunc()
 	fmt.Printf("  %s %s — %s\n", red("✘"), label, msg)
+	v.errors++
+}
+
+func (v *validator) failMsg(msg string) {
+	red := color.New(color.FgRed).SprintFunc()
+	fmt.Printf("  %s %s\n", red("✘"), msg)
 	v.errors++
 }
