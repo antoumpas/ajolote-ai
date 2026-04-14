@@ -241,7 +241,7 @@ func TestResolveWithNoExtends(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolved, err := config.Resolve(loaded, dir)
+	resolved, err := config.Resolve(loaded, dir, false)
 	if err != nil {
 		t.Fatalf("Resolve with no extends: %v", err)
 	}
@@ -271,7 +271,7 @@ func TestResolveWithLocalFileExtends(t *testing.T) {
 	project := t.TempDir()
 	os.MkdirAll(filepath.Join(project, ".agents"), 0o755)
 	os.WriteFile(filepath.Join(project, ".agents", "config.json"), []byte(`{
-		"extends": "`+baseProject+`",
+		"extends": "`+filepath.ToSlash(baseProject)+`",
 		"mcp": {"servers": {}},
 		"rules": [],
 		"skills": [],
@@ -279,14 +279,11 @@ func TestResolveWithLocalFileExtends(t *testing.T) {
 		"context": []
 	}`), 0o644)
 
-	os.Setenv("AJOLOTE_CACHE_TTL_SECONDS", "0") // always re-fetch
-	t.Cleanup(func() { os.Unsetenv("AJOLOTE_CACHE_TTL_SECONDS") })
-
 	cfg, err := config.Load(project)
 	if err != nil {
 		t.Fatal(err)
 	}
-	resolved, err := config.Resolve(cfg, project)
+	resolved, err := config.Resolve(cfg, project, true)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -330,7 +327,7 @@ func TestResolveExtendsLocalWins(t *testing.T) {
 	project := t.TempDir()
 	os.MkdirAll(filepath.Join(project, ".agents", "rules"), 0o755)
 	os.WriteFile(filepath.Join(project, ".agents", "config.json"), []byte(`{
-		"extends": "`+baseProject+`",
+		"extends": "`+filepath.ToSlash(baseProject)+`",
 		"mcp": {"servers": {"shared": {"command": "local-cmd"}}},
 		"rules": [".agents/rules/general.md"],
 		"skills": [],
@@ -339,11 +336,11 @@ func TestResolveExtendsLocalWins(t *testing.T) {
 	}`), 0o644)
 	os.WriteFile(filepath.Join(project, ".agents", "rules", "general.md"), []byte("# Local general"), 0o644)
 
-	os.Setenv("AJOLOTE_CACHE_TTL_SECONDS", "0")
-	t.Cleanup(func() { os.Unsetenv("AJOLOTE_CACHE_TTL_SECONDS") })
-
-	cfg, _ := config.Load(project)
-	resolved, err := config.Resolve(cfg, project)
+	cfg, err := config.Load(project)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := config.Resolve(cfg, project, true)
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
@@ -395,11 +392,9 @@ func TestResolveHTTPExtends(t *testing.T) {
 		"context": []
 	}`), 0o644)
 
-	os.Setenv("AJOLOTE_CACHE_TTL_SECONDS", "0")
-	t.Cleanup(func() { os.Unsetenv("AJOLOTE_CACHE_TTL_SECONDS") })
 
 	cfg, _ := config.Load(project)
-	resolved, err := config.Resolve(cfg, project)
+	resolved, err := config.Resolve(cfg, project, true)
 	if err != nil {
 		t.Fatalf("Resolve (HTTP): %v", err)
 	}

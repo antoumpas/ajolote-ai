@@ -757,10 +757,13 @@ Projects can override any file from the base by creating a local file with the s
 
 ### Cache
 
-Fetched base files are cached in `.agents/.base/` with a 1-hour TTL. To force a refresh:
+Fetched base files are cached in `.agents/.base/` with a 1-hour TTL. Pass `--refresh` to any command to re-fetch unconditionally:
 
 ```sh
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote sync
+ajolote sync --refresh
+ajolote use claude --refresh
+ajolote diff --refresh
+ajolote validate --refresh
 ```
 
 `.agents/.base/` is automatically gitignored by `ajolote init`.

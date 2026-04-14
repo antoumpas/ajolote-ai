@@ -14,7 +14,8 @@ import (
 )
 
 func UseCmd() *cobra.Command {
-	return &cobra.Command{
+	var refresh bool
+	cmd := &cobra.Command{
 		Use:   "use <tool>",
 		Short: "Generate local config files for your AI tool",
 		Long: `Reads .agents/config.json and generates the config files for the specified tool.
@@ -24,14 +25,16 @@ Commands defined in .agents/commands/ are translated into the tool's native form
 
 Supported tools: claude, cursor, windsurf, copilot, cline, aider`,
 		Args:    cobra.ExactArgs(1),
-		RunE:    runUse,
 		Example: "  ajolote use claude\n  ajolote use cursor",
 	}
+	cmd.Flags().BoolVar(&refresh, "refresh", false, "Re-fetch the inherited base config even if the local cache is still fresh")
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		return runUse(args[0], refresh)
+	}
+	return cmd
 }
 
-func runUse(cmd *cobra.Command, args []string) error {
-	toolName := args[0]
-
+func runUse(toolName string, refresh bool) error {
 	t, err := translators.Get(toolName)
 	if err != nil {
 		return err
@@ -47,7 +50,7 @@ func runUse(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	cfg, err = config.Resolve(cfg, projectRoot)
+	cfg, err = config.Resolve(cfg, projectRoot, refresh)
 	if err != nil {
 		return err
 	}

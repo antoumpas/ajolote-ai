@@ -74,7 +74,7 @@ Edit `.agents/config.json` to add `"extends": "/tmp/ai-standards"`:
 Run:
 
 ```sh
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude
+ajolote use claude
 ```
 
 **Expected:**
@@ -104,7 +104,7 @@ Update `config.json` to include it:
 ```
 
 ```sh
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude
+ajolote use claude
 ```
 
 **Expected:**
@@ -131,7 +131,7 @@ Add a server with the same name in the local config:
 ```
 
 ```sh
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude
+ajolote use claude
 ```
 
 **Expected:**
@@ -149,7 +149,7 @@ echo "# Deploy\nRun the deployment script." > /tmp/ai-standards/.agents/commands
 
 ```sh
 cd /tmp/my-project
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude
+ajolote use claude
 ```
 
 **Expected:**
@@ -206,7 +206,7 @@ cd /tmp/my-project
 ajolote use claude          # populates .agents/.base/ (first fetch)
 ls -la .agents/.base/       # note mtime
 ajolote use claude          # second call — cache should be used (fast, no network)
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude   # force refresh
+ajolote use claude --refresh   # force refresh
 ```
 
 **Expected:**
@@ -255,7 +255,7 @@ Edit config.json:
 ```
 
 ```sh
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude
+ajolote use claude
 ```
 
 **Expected:**
@@ -295,7 +295,7 @@ In a project:
 ```
 
 ```sh
-AJOLOTE_CACHE_TTL_SECONDS=0 ajolote use claude
+ajolote use claude
 ```
 
 **Expected:**
