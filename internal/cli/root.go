@@ -32,5 +32,6 @@ func init() {
 	rootCmd.AddCommand(commands.IgnoreCmd())
 	rootCmd.AddCommand(commands.StatusCmd())
 	rootCmd.AddCommand(commands.ValidateCmd())
+	rootCmd.AddCommand(commands.ScanCmd())
 	rootCmd.AddCommand(commands.DiffCmd())
 }

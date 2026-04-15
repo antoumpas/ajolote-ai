@@ -67,6 +67,10 @@ ajolote sync cursor    # syncs only cursor
 # Check that all referenced files and MCP servers are valid
 ajolote validate
 
+# Scan .agents/ files for leaked secrets and prompt-injection payloads
+ajolote scan
+ajolote scan --format json   # machine-readable output for CI
+
 # Preview what sync would change without writing anything (useful in CI)
 ajolote diff
 ajolote diff cursor
@@ -111,6 +115,77 @@ What it checks:
 | Every `stdio` MCP server has a `command` | Error |
 | Every `http` / `sse` MCP server has a `url` | Error |
 | `stdio` server `command` is found in `$PATH` | Warning (environment-specific) |
+
+### `ajolote scan`
+
+Scans every `.md` file under `.agents/rules/`, `.agents/skills/`, `.agents/personas/`, `.agents/context/`, and `.agents/commands/` for two classes of security risk:
+
+**Leaked secrets** — credentials accidentally committed into rule or skill prose:
+
+| Rule | What it matches |
+|---|---|
+| `aws-access-key` | AWS Access Key IDs (`AKIA…`) |
+| `aws-secret-key` | `aws_secret_access_key = …` assignments |
+| `github-pat` | Classic GitHub PATs (`ghp_…`) |
+| `github-pat-fine` | Fine-grained GitHub PATs (`github_pat_…`) |
+| `slack-token` | Slack bot/app tokens (`xoxb-…`, `xoxp-…`) |
+| `private-key` | PEM private key headers |
+| `database-uri` | Database URIs with embedded credentials (`postgres://user:pass@…`) |
+| `generic-api-key` | Any `api_key =`, `access_token =`, etc. with a long value |
+| `bearer-token` | `Authorization: Bearer …` header values |
+
+**Prompt injection** — adversarial payloads that could hijack AI agent behavior:
+
+| Rule | What it matches |
+|---|---|
+| `ignore-instructions` | "Ignore all previous instructions" variants |
+| `disregard-rules` | "Disregard your guidelines/rules" variants |
+| `persona-hijack` | "You are now …" persona overrides |
+| `override-instructions` | "Override/bypass all your training" variants |
+| `do-not-follow` | "Do not follow the above rules" variants |
+| `fake-system-delimiter` | Fake `system:` / `user:` / `assistant:` delimiters |
+| `special-token-injection` | Special tokens like `<\|endoftext\|>` |
+| `jailbreak-prefix` | Known jailbreak names (DAN, STAN, DUDE, …) |
+| `null-byte` | Null byte (`\x00`) control character |
+| `bare-carriage-return` | Bare `\r` without `\n` (hidden text trick) |
+
+Secrets are **redacted** in output — only the first 4 characters are shown. The scanner also checks any files referenced in `config.json` that live outside `.agents/`.
+
+```sh
+ajolote scan                  # text output, exit 1 on any finding
+ajolote scan --format json    # machine-readable JSON for CI pipelines
+ajolote scan --fail-on-warn   # exit 1 even on warnings
+```
+
+**Exit codes:** `0` = clean, `1` = issues found.
+
+**Example output:**
+
+```
+Content Scan
+
+  .agents/rules/deploy.md
+    ✘ .agents/rules/deploy.md:3 [secret/aws-access-key] — UseAKIA********
+
+1 issue(s) found
+```
+
+**CI integration (GitHub Actions):**
+
+```yaml
+- name: Scan agent files for secrets and injections
+  run: ajolote scan --format json | tee scan-results.json
+```
+
+**Pre-commit hook:**
+
+```sh
+#!/bin/sh
+# .git/hooks/pre-commit
+ajolote scan
+```
+
+---
 
 ### `ajolote diff`
 
