@@ -1,3 +1,8 @@
+## v1.3.0 — 2026-04-15
+
+- feat: add ajolote scan command for secret and prompt-injection detection (2cf30be)
+- chore: update CHANGELOG for v1.2.0 (9ee4051)
+
 ## v1.2.0 — 2026-04-15
 
 - feat: add bidirectional import for windsurf scoped rules, commands, and codex MCP servers (bf0833c)
