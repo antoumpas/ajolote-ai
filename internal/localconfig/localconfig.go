@@ -5,6 +5,7 @@ package localconfig
 import (
 	"encoding/json"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 )
@@ -40,17 +41,20 @@ func Load(projectRoot string) (*LocalConfig, error) {
 
 // IsProtected reports whether relPath matches any pattern in the protect list.
 //
-// Pattern semantics (filepath.Match rules apply):
-//   - Exact match:     "CLAUDE.md"        → protects only CLAUDE.md
-//   - Glob:            ".claude/commands/*.md" → protects any .md file in that dir
-//   - Directory:       ".claude/commands/"     → protects everything under that dir
+// Pattern semantics (path.Match rules apply — always uses "/" as separator):
+//   - Exact match:     "CLAUDE.md"             → protects only CLAUDE.md
+//   - Glob:            ".claude/commands/*.md"  → protects any .md file in that dir (not subdirs)
+//   - Directory:       ".claude/commands/"      → protects everything under that dir at any depth
 //
 // Calling IsProtected on a nil *LocalConfig always returns false — safe zero value.
 func (lc *LocalConfig) IsProtected(relPath string) bool {
 	if lc == nil {
 		return false
 	}
-	// Normalise to forward slashes so patterns work cross-platform.
+	// Normalise to forward slashes so patterns work identically on Windows and Unix.
+	// We use path.Match (not filepath.Match) because filepath.Match on Windows uses
+	// "\" as its separator, meaning "*" would incorrectly match "/" in forward-slash
+	// paths and cross directory boundaries.
 	relPath = filepath.ToSlash(relPath)
 	for _, pattern := range lc.Protect {
 		pattern = filepath.ToSlash(pattern)
@@ -63,7 +67,8 @@ func (lc *LocalConfig) IsProtected(relPath string) bool {
 			continue
 		}
 
-		matched, err := filepath.Match(pattern, relPath)
+		// path.Match always treats "/" as the separator, so "*" never crosses dirs.
+		matched, err := path.Match(pattern, relPath)
 		if err == nil && matched {
 			return true
 		}
