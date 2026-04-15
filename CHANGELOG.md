@@ -1,3 +1,12 @@
+## v1.4.0 — 2026-04-15
+
+- fix: use path.Match instead of filepath.Match in IsProtected for Windows compat (54e8ff0)
+- fix: warn when config.local.json is malformed instead of silently ignoring (6bee182)
+- qa: mark all 18 protection scenarios as PASS after manual execution (a737e95)
+- qa: add scenarios for local file protection feature (d6b477b)
+- feat: add .agents/config.local.json for local file protection (7eed888)
+- chore: update CHANGELOG for v1.3.0 (26a383e)
+
 ## v1.3.0 — 2026-04-15
 
 - feat: add ajolote scan command for secret and prompt-injection detection (2cf30be)
