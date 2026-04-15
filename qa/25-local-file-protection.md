@@ -9,6 +9,14 @@ from overwriting files the developer has manually customised.
 - Protected files show `⊘ <file> (protected)` (yellow) in output instead of `✔` / `↓`
 - Absent file = no protection (default behaviour, zero regression risk)
 
+**QA run date:** 2026-04-15  
+**Result: 18/18 PASS**
+
+**Finding — PROTECT-013 (malformed JSON):** When `config.local.json` contains invalid JSON,
+the tool silently falls back to no-protection mode and completes successfully (exit 0).
+This is safe behaviour but gives no warning to the developer that their protect list was
+ignored. Recommendation: emit a yellow warning to stderr in a future release.
+
 ---
 
 ### PROTECT-001 — No local config file → normal generation (baseline)
@@ -19,7 +27,7 @@ from overwriting files the developer has manually customised.
 2. Verify `CLAUDE.md` is created and contains generated content.
 
 **Expected result:** `CLAUDE.md` generated normally. No `⊘` symbols in output. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -33,7 +41,7 @@ from overwriting files the developer has manually customised.
 4. `cat CLAUDE.md`
 
 **Expected result:** `CLAUDE.md` still contains `# My personal notes`. The file was not overwritten. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -48,7 +56,7 @@ from overwriting files the developer has manually customised.
 5. `cat .cursor/mcp.json`
 
 **Expected result:** `.cursor/mcp.json` still contains the custom local server entry. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -60,7 +68,7 @@ from overwriting files the developer has manually customised.
 2. Observe the output.
 
 **Expected result:** Output contains `⊘ CLAUDE.md (protected)` in yellow. Other files (`.claude/settings.json`, etc.) show `✔` normally.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -72,7 +80,7 @@ from overwriting files the developer has manually customised.
 2. Observe the `↓` / `⊘` lines in the output.
 
 **Expected result:** `⊘ CLAUDE.md (protected)` shown under the `claude` section. Other files show `↓` normally.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -85,7 +93,7 @@ from overwriting files the developer has manually customised.
 3. Check that `.claude/settings.json` was created.
 
 **Expected result:** `.claude/settings.json` is created/updated normally. Only `CLAUDE.md` is skipped.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -100,7 +108,7 @@ from overwriting files the developer has manually customised.
 5. `cat .claude/commands/my-cmd.md`
 
 **Expected result:** `.claude/commands/my-cmd.md` still contains `# My custom command`. The generated `ajolote-sync.md` is also protected by the glob and not regenerated from the canonical template.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -113,7 +121,7 @@ from overwriting files the developer has manually customised.
 3. Verify `.claude/commands/sub/nested.md` content.
 
 **Expected result:** The `*` glob does not cross directory boundaries. `.claude/commands/sub/nested.md` is NOT protected by `*.md` (it would need `**/*.md` or the directory prefix `".claude/commands/"`). File is overwritten/not protected.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -128,7 +136,7 @@ from overwriting files the developer has manually customised.
 5. `cat .claude/settings.json`
 
 **Expected result:** `.claude/settings.json`, `.claude/commands/ajolote-sync.md`, and any other file under `.claude/` are all preserved. All show `⊘` in output. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -146,7 +154,7 @@ from overwriting files the developer has manually customised.
 5. Verify both files are unchanged.
 
 **Expected result:** Both protected files retain their custom content. Both show `⊘` in output. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -161,7 +169,7 @@ from overwriting files the developer has manually customised.
 5. Verify `.cursor/mcp.json` content.
 
 **Expected result:** `.cursor/mcp.json` still contains `custom`. Demonstrates protection is tool-agnostic. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -174,7 +182,7 @@ from overwriting files the developer has manually customised.
 3. Observe output.
 
 **Expected result:** All files show `✔` normally. No `⊘` symbols. Behaviour identical to having no local config file. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -187,7 +195,8 @@ from overwriting files the developer has manually customised.
 3. `echo "Exit: $?"`
 
 **Expected result:** Command either exits with a clear error message referencing `config.local.json`, or falls back to no-protection behaviour and completes. Must not panic or produce a cryptic error. Exit code communicates whether generation succeeded.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS  
+**Actual:** Falls back silently to no-protection mode (exit 0, all files generated). No warning emitted. Safe but invisible — recommend adding a yellow stderr warning in a future release.
 
 ---
 
@@ -200,7 +209,7 @@ from overwriting files the developer has manually customised.
 3. Search for `.agents/config.local.json` in the output.
 
 **Expected result:** `.agents/config.local.json` appears inside the `# <ajolote-ai>` managed block of `.gitignore`. The entry is present even before the file itself is created.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -213,7 +222,7 @@ from overwriting files the developer has manually customised.
 3. `git status`
 
 **Expected result:** `.agents/config.local.json` does NOT appear as a file to be committed — it is recognised as gitignored. `git status` shows it as ignored (or absent from the tracked/untracked list).  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -226,7 +235,7 @@ from overwriting files the developer has manually customised.
 3. Alternatively, call `ajolote ignore` or note that `init` won't re-run.
 
 **Expected result:** (Documents known behaviour) `init` skips if config exists. Teams should run `ajolote init` fresh or manually ensure the entry is present. This is a known limitation — no auto-repair outside of `init`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -239,7 +248,7 @@ from overwriting files the developer has manually customised.
 3. Check whether `CLAUDE.md` was created.
 
 **Expected result:** Because the file doesn't exist, the write is still skipped (protection applies regardless). `CLAUDE.md` is NOT created. Output shows `⊘ CLAUDE.md (protected)`. The developer must create it manually if they want it.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
 
 ---
 
@@ -252,4 +261,4 @@ from overwriting files the developer has manually customised.
 3. Check `.agents/config.json`.
 
 **Expected result:** The `↑` import phase still runs — new MCP servers discovered by `sync` are imported into `.agents/config.json` correctly. Protection only blocks the `↓` export/write phase, not the import phase. Exit code `0`.  
-**Pass / Fail:** ☐
+**Pass / Fail:** ✅ PASS
