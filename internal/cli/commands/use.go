@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajolote-ai/ajolote/internal/config"
+	"github.com/ajolote-ai/ajolote/internal/localconfig"
 	"github.com/ajolote-ai/ajolote/internal/translators"
 )
 
@@ -59,21 +60,32 @@ func runUse(toolName string, refresh bool) error {
 		return fmt.Errorf("generating %s config: %w", toolName, err)
 	}
 
-	// Print generated files — walk directories for accurate listing
+	lc, _ := localconfig.Load(projectRoot)
+
+	// Print generated files — walk directories for accurate listing.
 	for _, f := range t.OutputFiles() {
 		if strings.HasSuffix(f, "/") {
-			// Directory pattern — list what's actually inside
+			// Directory pattern — list what's actually inside.
 			dir := filepath.Join(projectRoot, f)
 			entries, err := os.ReadDir(dir)
 			if err == nil {
 				for _, e := range entries {
 					if !e.IsDir() {
-						printOK(filepath.Join(f, e.Name()))
+						rel := filepath.Join(f, e.Name())
+						if lc.IsProtected(rel) {
+							printProtected(rel)
+						} else {
+							printOK(rel)
+						}
 					}
 				}
 			}
 		} else {
-			printOK(f)
+			if lc.IsProtected(f) {
+				printProtected(f)
+			} else {
+				printOK(f)
+			}
 		}
 	}
 

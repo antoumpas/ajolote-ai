@@ -71,6 +71,9 @@ ajolote validate
 ajolote scan
 ajolote scan --format json   # machine-readable output for CI
 
+# Protect specific local files from being overwritten by sync/use
+# (create .agents/config.local.json — gitignored, personal to your machine)
+
 # Preview what sync would change without writing anything (useful in CI)
 ajolote diff
 ajolote diff cursor
@@ -184,6 +187,40 @@ Content Scan
 # .git/hooks/pre-commit
 ajolote scan
 ```
+
+---
+
+### Local overrides: protecting files from being regenerated
+
+If you've manually customised a generated file — added personal notes to `CLAUDE.md`,
+tweaked `.cursor/mcp.json` with a local server — create `.agents/config.local.json`:
+
+```json
+{
+  "protect": [
+    "CLAUDE.md",
+    ".claude/commands/*.md",
+    ".cursor/mcp.json"
+  ]
+}
+```
+
+**This file is gitignored automatically** (added by `ajolote init`). It is personal
+to your machine — your teammates' syncs are completely unaffected.
+
+When `ajolote use` or `ajolote sync` encounters a protected file it skips the write
+and shows `⊘ CLAUDE.md (protected)` in the output instead of the usual `✔`.
+
+Pattern rules:
+
+| Pattern | What it protects |
+|---|---|
+| `"CLAUDE.md"` | Exactly that file |
+| `".claude/commands/*.md"` | Any `.md` in that directory (one level deep) |
+| `".claude/commands/"` | Everything under that directory (all depths) |
+
+Patterns use [`filepath.Match`](https://pkg.go.dev/path/filepath#Match) semantics.
+A trailing `/` acts as a recursive directory prefix.
 
 ---
 

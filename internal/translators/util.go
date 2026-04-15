@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/ajolote-ai/ajolote/internal/config"
+	"github.com/ajolote-ai/ajolote/internal/localconfig"
 )
 
 // mcpServerJSON is the tool-facing MCP server representation.
@@ -135,7 +136,13 @@ func mergeUserMCPConfig(path string, servers map[string]config.MCPServer) error 
 }
 
 // writeFile writes content to path (relative to projectRoot), creating dirs as needed.
+// If the developer has listed relPath in .agents/config.local.json "protect", the
+// write is silently skipped — the file is left exactly as the developer left it.
 func writeFile(projectRoot, relPath, content string) error {
+	lc, _ := localconfig.Load(projectRoot)
+	if lc.IsProtected(relPath) {
+		return nil // protected — leave the file untouched
+	}
 	full := filepath.Join(projectRoot, relPath)
 	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
 		return fmt.Errorf("creating directory for %s: %w", relPath, err)

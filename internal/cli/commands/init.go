@@ -10,6 +10,7 @@ import (
 
 	"github.com/ajolote-ai/ajolote/internal/config"
 	"github.com/ajolote-ai/ajolote/internal/gitignore"
+	"github.com/ajolote-ai/ajolote/internal/localconfig"
 	"github.com/ajolote-ai/ajolote/internal/translators"
 )
 
@@ -294,10 +295,17 @@ func ignoreAllTools(projectRoot string) error {
 	}
 	// Inherited base config files are cached here and must not be committed.
 	entries = append(entries, ".agents/.base/")
+	// Developer-local overrides must never be committed.
+	entries = append(entries, localconfig.Filename)
 	return gitignore.Update(projectRoot, entries)
 }
 
 func printOK(path string) {
 	green := color.New(color.FgGreen).SprintFunc()
 	fmt.Printf("  %s %s\n", green("✔"), path)
+}
+
+func printProtected(path string) {
+	yellow := color.New(color.FgYellow).SprintFunc()
+	fmt.Printf("  %s %s %s\n", yellow("⊘"), path, yellow("(protected)"))
 }
