@@ -1,3 +1,8 @@
+## v1.2.0 — 2026-04-15
+
+- feat: add bidirectional import for windsurf scoped rules, commands, and codex MCP servers (bf0833c)
+- chore: update CHANGELOG for v1.1.0 (61dc982)
+
 ## v1.1.0 — 2026-04-14
 
 - feat: replace env var cache bypass with --refresh flag (d86dbf3)
