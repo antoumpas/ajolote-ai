@@ -12,10 +12,9 @@ from overwriting files the developer has manually customised.
 **QA run date:** 2026-04-15  
 **Result: 18/18 PASS**
 
-**Finding — PROTECT-013 (malformed JSON):** When `config.local.json` contains invalid JSON,
-the tool silently falls back to no-protection mode and completes successfully (exit 0).
-This is safe behaviour but gives no warning to the developer that their protect list was
-ignored. Recommendation: emit a yellow warning to stderr in a future release.
+**Finding — PROTECT-013 (malformed JSON):** Resolved. A yellow warning is now emitted
+when `config.local.json` cannot be parsed, then the tool falls back to no-protection mode
+and completes (exit 0). Developer is informed exactly why their protect list was ignored.
 
 ---
 
@@ -196,7 +195,7 @@ ignored. Recommendation: emit a yellow warning to stderr in a future release.
 
 **Expected result:** Command either exits with a clear error message referencing `config.local.json`, or falls back to no-protection behaviour and completes. Must not panic or produce a cryptic error. Exit code communicates whether generation succeeded.  
 **Pass / Fail:** ✅ PASS  
-**Actual:** Falls back silently to no-protection mode (exit 0, all files generated). No warning emitted. Safe but invisible — recommend adding a yellow stderr warning in a future release.
+**Actual:** Emits a yellow warning `⚠ .agents/config.local.json is invalid and will be ignored: <reason>`, then falls back to no-protection mode (exit 0, all files generated). Finding resolved.
 
 ---
 

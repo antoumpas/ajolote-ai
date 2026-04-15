@@ -60,7 +60,10 @@ func runUse(toolName string, refresh bool) error {
 		return fmt.Errorf("generating %s config: %w", toolName, err)
 	}
 
-	lc, _ := localconfig.Load(projectRoot)
+	lc, lcErr := localconfig.Load(projectRoot)
+	if lcErr != nil {
+		color.Yellow("  ⚠ %s is invalid and will be ignored: %v", localconfig.Filename, lcErr)
+	}
 
 	// Print generated files — walk directories for accurate listing.
 	for _, f := range t.OutputFiles() {
