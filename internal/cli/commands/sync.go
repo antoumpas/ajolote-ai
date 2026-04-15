@@ -9,6 +9,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/ajolote-ai/ajolote/internal/config"
+	"github.com/ajolote-ai/ajolote/internal/localconfig"
 	"github.com/ajolote-ai/ajolote/internal/translators"
 )
 
@@ -167,8 +168,14 @@ func runSync(args []string, refresh bool) error {
 		if err := t.Generate(resolved, projectRoot); err != nil {
 			return fmt.Errorf("generating %s config: %w", t.Name(), err)
 		}
+		lc, _ := localconfig.Load(projectRoot)
+		skip := color.New(color.FgYellow).SprintFunc()
 		for _, f := range t.OutputFiles() {
-			fmt.Printf("  %s %s\n", down("↓"), f)
+			if lc.IsProtected(f) {
+				fmt.Printf("  %s %s %s\n", skip("⊘"), f, skip("(protected)"))
+			} else {
+				fmt.Printf("  %s %s\n", down("↓"), f)
+			}
 		}
 	}
 
