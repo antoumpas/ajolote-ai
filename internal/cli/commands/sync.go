@@ -168,7 +168,10 @@ func runSync(args []string, refresh bool) error {
 		if err := t.Generate(resolved, projectRoot); err != nil {
 			return fmt.Errorf("generating %s config: %w", t.Name(), err)
 		}
-		lc, _ := localconfig.Load(projectRoot)
+		lc, lcErr := localconfig.Load(projectRoot)
+		if lcErr != nil {
+			color.Yellow("  ⚠ %s is invalid and will be ignored: %v", localconfig.Filename, lcErr)
+		}
 		skip := color.New(color.FgYellow).SprintFunc()
 		for _, f := range t.OutputFiles() {
 			if lc.IsProtected(f) {
