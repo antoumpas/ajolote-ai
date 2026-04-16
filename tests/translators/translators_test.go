@@ -32,6 +32,7 @@ var scopedOnlyDirs = map[string]bool{
 	".claude/rules/":        true,
 	".github/instructions/": true,
 	".claude/agents/":       true, // only written when a persona has a claude: block
+	".claude/skills/":       true, // only written when skill files exist on disk
 }
 
 func TestAllTranslatorsGenerate(t *testing.T) {
@@ -89,16 +90,51 @@ func TestClaudeTranslatorContent(t *testing.T) {
 	data, _ := os.ReadFile(filepath.Join(dir, "CLAUDE.md"))
 	content := string(data)
 
-	// Claude Code uses @file import syntax
+	// Claude Code uses @file import syntax for rules
 	if !strings.Contains(content, "@.agents/rules/general.md") {
 		t.Error("CLAUDE.md should use @file import syntax for rules")
 	}
-	if !strings.Contains(content, "@.agents/skills/git.md") {
-		t.Error("CLAUDE.md should use @file import syntax for skills")
+	// Skills are written to .claude/skills/ natively — no @file reference in CLAUDE.md
+	if strings.Contains(content, "@.agents/skills/") {
+		t.Error("CLAUDE.md should not contain @file skill references — skills are written to .claude/skills/")
 	}
 	// Must NOT contain bullet-list references
 	if strings.Contains(content, "- `.agents/") {
 		t.Error("CLAUDE.md should not use bullet-list file references")
+	}
+}
+
+func TestClaudeSkillsWrittenToDirectory(t *testing.T) {
+	dir := t.TempDir()
+	cfg := testConfig()
+
+	// Seed the skill files that Generate will read
+	os.MkdirAll(filepath.Join(dir, ".agents", "skills"), 0o755)
+	os.WriteFile(filepath.Join(dir, ".agents/skills/git.md"), []byte("# Git Skill\n\nUse feature branches.\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, ".agents/skills/testing.md"), []byte("# Testing Skill\n\nWrite tests.\n"), 0o644)
+
+	tr := &translators.ClaudeTranslator{}
+	if err := tr.Generate(cfg, dir); err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+
+	// Each skill should be written as .claude/skills/<name>/SKILL.md
+	for _, tc := range []struct {
+		name    string
+		excerpt string
+	}{
+		{"git", "# Git Skill"},
+		{"testing", "# Testing Skill"},
+	} {
+		path := filepath.Join(dir, ".claude", "skills", tc.name, "SKILL.md")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			t.Errorf(".claude/skills/%s/SKILL.md not created: %v", tc.name, err)
+			continue
+		}
+		if !strings.Contains(string(data), tc.excerpt) {
+			t.Errorf(".claude/skills/%s/SKILL.md missing expected content %q, got: %s", tc.name, tc.excerpt, data)
+		}
 	}
 }
 
