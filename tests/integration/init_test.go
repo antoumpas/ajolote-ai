@@ -228,6 +228,53 @@ func TestInitFromFlagImportsOnlySpecifiedTool(t *testing.T) {
 	}
 }
 
+func TestInitImportsSkillsFromClaude(t *testing.T) {
+	// Regression: ajolote init did not import .claude/skills/ into .agents/skills/.
+	// spec-kit and similar tools create skills as subdirectories with a SKILL.md file.
+	dir := t.TempDir()
+
+	// Dir-style skills (spec-kit convention: .claude/skills/<name>/SKILL.md)
+	for _, name := range []string{"speckit-clarify", "speckit-plan", "speckit-implement"} {
+		os.MkdirAll(filepath.Join(dir, ".claude", "skills", name), 0o755)
+		os.WriteFile(
+			filepath.Join(dir, ".claude", "skills", name, "SKILL.md"),
+			[]byte("# "+name+"\n\nSkill instructions for "+name+".\n"),
+			0o644,
+		)
+	}
+
+	// Flat-style skill (.claude/skills/<name>.md)
+	os.WriteFile(
+		filepath.Join(dir, ".claude", "skills", "custom.md"),
+		[]byte("# Custom\n\nA flat skill file.\n"),
+		0o644,
+	)
+
+	if err := runInit(t, dir); err != nil {
+		t.Fatalf("init failed: %v", err)
+	}
+
+	// Each skill should appear in .agents/skills/
+	for _, name := range []string{"speckit-clarify", "speckit-plan", "speckit-implement", "custom"} {
+		path := filepath.Join(dir, ".agents", "skills", name+".md")
+		if _, err := os.Stat(path); err != nil {
+			t.Errorf("expected .agents/skills/%s.md to be imported, but it is missing", name)
+		}
+	}
+
+	// Each imported skill path should be registered in config.json
+	data, err := os.ReadFile(filepath.Join(dir, ".agents", "config.json"))
+	if err != nil {
+		t.Fatal("config.json not found")
+	}
+	for _, name := range []string{"speckit-clarify", "speckit-plan", "speckit-implement", "custom"} {
+		want := ".agents/skills/" + name + ".md"
+		if !strings.Contains(string(data), want) {
+			t.Errorf("expected %q to be listed in config.json skills, but it was not", want)
+		}
+	}
+}
+
 func TestInitFromFlagUnknownToolErrors(t *testing.T) {
 	dir := t.TempDir()
 	err := runInit(t, dir, "--from", "unknowntool")

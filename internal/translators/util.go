@@ -316,6 +316,26 @@ func existingCommandNames(projectRoot string) (map[string]bool, error) {
 	return names, nil
 }
 
+// existingSkillNames returns a set of skill file names (without extension) already
+// present in .agents/skills/.
+func existingSkillNames(projectRoot string) (map[string]bool, error) {
+	dir := filepath.Join(projectRoot, ".agents", "skills")
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return map[string]bool{}, nil
+		}
+		return nil, fmt.Errorf("reading %s: %w", dir, err)
+	}
+	names := make(map[string]bool, len(entries))
+	for _, e := range entries {
+		if !e.IsDir() && strings.HasSuffix(e.Name(), ".md") {
+			names[strings.TrimSuffix(e.Name(), ".md")] = true
+		}
+	}
+	return names, nil
+}
+
 // atFileList renders paths as Claude Code @file imports under a heading.
 func atFileList(heading string, paths []string) string {
 	if len(paths) == 0 {

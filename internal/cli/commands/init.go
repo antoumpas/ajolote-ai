@@ -96,6 +96,13 @@ func runInit(cmd *cobra.Command, args []string, fromTool string) error {
 		return err
 	}
 	printOK(".agents/skills/testing.md")
+	for name, content := range imported.skillFiles {
+		skillPath := filepath.Join(skillsDir, name)
+		if err := seedFile(skillPath, content); err != nil {
+			return fmt.Errorf("writing imported skill %s: %w", name, err)
+		}
+		printOK(".agents/skills/" + name)
+	}
 
 	// Seed persona files
 	personasDir := filepath.Join(projectRoot, ".agents", "personas")
@@ -168,13 +175,15 @@ type toolImport struct {
 	nServers   int
 	commands   []translators.Command
 	nRuleFiles int
+	nSkills    int
 }
 
 // initImports is the aggregated result of scanning all tools.
 type initImports struct {
-	byTool    []toolImport
-	commands  []translators.Command // deduplicated across tools
-	ruleFiles map[string]string     // filename → content, from first tool that has them
+	byTool     []toolImport
+	commands   []translators.Command // deduplicated across tools
+	ruleFiles  map[string]string     // filename → content, from first tool that has them
+	skillFiles map[string]string     // filename → content, deduplicated across tools
 }
 
 // importFromExistingTools scans translators for existing configs and merges
@@ -226,7 +235,19 @@ func importFromExistingTools(projectRoot string, cfg *config.Config, fromTool st
 			ti.nRuleFiles = len(ir.NewRuleFiles)
 		}
 
-		if ti.nServers > 0 || len(ti.commands) > 0 || ti.nRuleFiles > 0 {
+		// Collect skill files (first tool to define a name wins) and register paths in cfg.
+		for name, content := range ir.NewSkillFiles {
+			if result.skillFiles == nil {
+				result.skillFiles = map[string]string{}
+			}
+			if _, already := result.skillFiles[name]; !already {
+				result.skillFiles[name] = content
+				ti.nSkills++
+				cfg.Skills = appendIfMissing(cfg.Skills, ".agents/skills/"+name)
+			}
+		}
+
+		if ti.nServers > 0 || len(ti.commands) > 0 || ti.nRuleFiles > 0 || ti.nSkills > 0 {
 			result.byTool = append(result.byTool, ti)
 		}
 	}
@@ -272,9 +293,29 @@ func printImportSummary(imported initImports) {
 				parts += fmt.Sprintf("%d rule files", ti.nRuleFiles)
 			}
 		}
+		if ti.nSkills > 0 {
+			if parts != "" {
+				parts += ", "
+			}
+			if ti.nSkills == 1 {
+				parts += "1 skill"
+			} else {
+				parts += fmt.Sprintf("%d skills", ti.nSkills)
+			}
+		}
 		fmt.Printf("    %s %s — %s imported\n", up("↑"), ti.name, parts)
 	}
 	fmt.Println()
+}
+
+// appendIfMissing appends s to slice only if it is not already present.
+func appendIfMissing(slice []string, s string) []string {
+	for _, v := range slice {
+		if v == s {
+			return slice
+		}
+	}
+	return append(slice, s)
 }
 
 func seedFile(path, content string) error {

@@ -19,11 +19,15 @@ type ImportResult struct {
 	// ScopedRuleContents maps scoped rule name → body content, so the caller can write
 	// the rule file with real content instead of a placeholder stub.
 	ScopedRuleContents map[string]string
+	// NewSkillFiles are skill file contents found in the tool's skills directory but absent
+	// from .agents/skills/. Key is the target filename under .agents/skills/ (e.g. "speckit-clarify.md"),
+	// value is the file content.
+	NewSkillFiles map[string]string
 }
 
 // HasChanges reports whether the import found anything new.
 func (r *ImportResult) HasChanges() bool {
-	return len(r.NewMCPServers) > 0 || len(r.NewCommands) > 0 || len(r.NewRuleFiles) > 0 || len(r.NewScopedRules) > 0
+	return len(r.NewMCPServers) > 0 || len(r.NewCommands) > 0 || len(r.NewRuleFiles) > 0 || len(r.NewScopedRules) > 0 || len(r.NewSkillFiles) > 0
 }
 
 // Syncer extends Translator with the ability to read a tool's existing config

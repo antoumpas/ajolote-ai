@@ -120,6 +120,21 @@ func runSync(args []string, refresh bool) error {
 					configChanged = true
 				}
 			}
+			for name, content := range result.NewSkillFiles {
+				skillPath := filepath.Join(projectRoot, ".agents", "skills", name)
+				if _, err := os.Stat(skillPath); os.IsNotExist(err) {
+					if err := os.MkdirAll(filepath.Dir(skillPath), 0o755); err != nil {
+						return fmt.Errorf("creating .agents/skills/: %w", err)
+					}
+					if err := os.WriteFile(skillPath, []byte(content), 0o644); err != nil {
+						return fmt.Errorf("writing .agents/skills/%s: %w", name, err)
+					}
+					agentsPath := ".agents/skills/" + name
+					cfg.Skills = appendIfMissing(cfg.Skills, agentsPath)
+					fmt.Printf("  %s %s  %s\n", up("↑"), agentsPath, added("(new skill imported)"))
+					configChanged = true
+				}
+			}
 			for _, sr := range result.NewScopedRules {
 				// Check if already present in config (match by name)
 				exists := false
