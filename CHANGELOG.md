@@ -1,3 +1,9 @@
+## v1.4.1 — 2026-04-16
+
+- feat: write skills to .claude/skills/<name>/SKILL.md on generate (fe97c40)
+- feat: import .claude/skills/ into .agents/skills/ on ajolote init/sync (3e55897)
+- chore: update CHANGELOG for v1.4.0 (493cb08)
+
 ## v1.4.0 — 2026-04-15
 
 - fix: use path.Match instead of filepath.Match in IsProtected for Windows compat (54e8ff0)
